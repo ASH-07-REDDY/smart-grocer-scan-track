@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Package, MoreVertical } from "lucide-react";
+import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Product {
@@ -10,6 +10,7 @@ interface Product {
   name: string;
   category: string;
   quantity: number;
+  quantityType?: string;
   expiryDate: string;
   amount: string;
   image: string;
@@ -18,9 +19,11 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
+  onEdit?: (product: Product) => void;
+  onDelete?: (productId: number) => void;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const isExpiringSoon = () => {
     const expiryDate = new Date(product.expiryDate);
     const today = new Date();
@@ -72,9 +75,17 @@ export function ProductCard({ product }: ProductCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>Edit Product</DropdownMenuItem>
-              <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit?.(product)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Product
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-red-600"
+                onClick={() => onDelete?.(product.id)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -90,7 +101,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Package className="w-4 h-4" />
-              <span>Qty: {product.quantity}</span>
+              <span>Qty: {product.quantity} {product.quantityType || 'units'}</span>
             </div>
             
             <div className="flex items-center gap-2 text-sm text-gray-600">

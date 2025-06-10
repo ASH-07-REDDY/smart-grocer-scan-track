@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,14 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload } from "lucide-react";
 
-interface AddProductDialogProps {
+interface EditProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddProduct: (product: any) => void;
+  product: any;
+  onUpdateProduct: (product: any) => void;
 }
 
-export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProductDialogProps) {
+export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct }: EditProductDialogProps) {
   const [formData, setFormData] = useState({
+    id: 0,
     name: "",
     category: "",
     quantity: "",
@@ -27,6 +29,22 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
 
   const categories = ["Fruits", "Vegetables", "Dairy", "Meat", "Pantry", "Frozen", "Beverages"];
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        id: product.id,
+        name: product.name || "",
+        category: product.category || "",
+        quantity: product.quantity?.toString() || "",
+        quantityType: product.quantityType || "pieces",
+        expiryDate: product.expiryDate || "",
+        amount: product.amount?.replace('₹', '') || "",
+        barcode: product.barcode || "",
+        image: product.image || ""
+      });
+    }
+  }, [product]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,30 +59,19 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddProduct({
+    onUpdateProduct({
       ...formData,
       quantity: parseInt(formData.quantity),
       amount: formData.amount.startsWith('₹') ? formData.amount : `₹${formData.amount}`,
       image: formData.image || "/placeholder.svg"
     });
-    setFormData({
-      name: "",
-      category: "",
-      quantity: "",
-      quantityType: "pieces",
-      expiryDate: "",
-      amount: "",
-      barcode: "",
-      image: ""
-    });
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>Edit Product</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -185,7 +192,7 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
               Cancel
             </Button>
             <Button type="submit" className="flex-1">
-              Add Product
+              Update Product
             </Button>
           </div>
         </form>

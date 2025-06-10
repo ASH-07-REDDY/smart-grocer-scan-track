@@ -7,6 +7,7 @@ interface Product {
   name: string;
   category: string;
   quantity: number;
+  quantityType?: string;
   expiryDate: string;
   amount: string;
   image: string;
@@ -31,7 +32,7 @@ export function DashboardStats({ products }: DashboardStatsProps) {
   }).length;
 
   const totalValue = products.reduce((sum, product) => {
-    const price = parseFloat(product.amount.replace('$', '')) || 0;
+    const price = parseFloat(product.amount.replace('₹', '').replace(',', '')) || 0;
     return sum + (price * product.quantity);
   }, 0);
 
@@ -59,7 +60,7 @@ export function DashboardStats({ products }: DashboardStatsProps) {
     },
     {
       title: "Total Value",
-      value: `$${totalValue.toFixed(2)}`,
+      value: `₹${totalValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: "text-purple-600",
       bgColor: "bg-purple-100",

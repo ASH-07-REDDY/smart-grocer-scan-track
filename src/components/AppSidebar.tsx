@@ -42,7 +42,15 @@ const menuItems = [
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  userData?: { email: string; name: string } | null;
+}
+
+export function AppSidebar({ userData }: AppSidebarProps) {
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
     <Sidebar className="border-r border-gray-200">
       <SidebarHeader className="p-4">
@@ -80,11 +88,17 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
           <Avatar className="w-8 h-8">
-            <AvatarFallback>JD</AvatarFallback>
+            <AvatarFallback>
+              {userData ? getInitials(userData.name) : "U"}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">John Doe</p>
-            <p className="text-xs text-gray-500 truncate">john@example.com</p>
+            <p className="text-sm font-medium truncate">
+              {userData?.name || "User"}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              {userData?.email || "user@example.com"}
+            </p>
           </div>
         </div>
       </SidebarFooter>

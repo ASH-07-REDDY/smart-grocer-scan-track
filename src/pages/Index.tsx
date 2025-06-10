@@ -1,10 +1,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -13,25 +11,30 @@ import { ProductCard } from "@/components/ProductCard";
 import { AddProductDialog } from "@/components/AddProductDialog";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { DashboardStats } from "@/components/DashboardStats";
+import { EditProductDialog } from "@/components/EditProductDialog";
 import { Plus, Search, ScanLine } from "lucide-react";
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState<{ email: string; name: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showEditProduct, setShowEditProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
 
-  // Mock products data
+  // Mock products data with rupees
   const [products, setProducts] = useState([
     {
       id: 1,
       name: "Organic Bananas",
       category: "Fruits",
       quantity: 6,
+      quantityType: "pieces",
       expiryDate: "2024-06-15",
-      amount: "$3.99",
-      image: "/placeholder.svg",
+      amount: "₹299",
+      image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400",
       barcode: "123456789"
     },
     {
@@ -39,9 +42,10 @@ const Index = () => {
       name: "Whole Milk",
       category: "Dairy",
       quantity: 2,
+      quantityType: "litres",
       expiryDate: "2024-06-12",
-      amount: "$4.50",
-      image: "/placeholder.svg",
+      amount: "₹120",
+      image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",
       barcode: "987654321"
     },
     {
@@ -49,9 +53,10 @@ const Index = () => {
       name: "Chicken Breast",
       category: "Meat",
       quantity: 1,
+      quantityType: "kg",
       expiryDate: "2024-06-14",
-      amount: "$8.99",
-      image: "/placeholder.svg",
+      amount: "₹450",
+      image: "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400",
       barcode: "456789123"
     }
   ]);
@@ -68,20 +73,42 @@ const Index = () => {
     setProducts([...products, { ...newProduct, id: Date.now() }]);
   };
 
+  const updateProduct = (updatedProduct: any) => {
+    setProducts(products.map(product => 
+      product.id === updatedProduct.id ? updatedProduct : product
+    ));
+    setShowEditProduct(false);
+    setEditingProduct(null);
+  };
+
+  const deleteProduct = (productId: number) => {
+    setProducts(products.filter(product => product.id !== productId));
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setShowEditProduct(true);
+  };
+
   const onBarcodeScanned = (barcode: string) => {
     console.log("Scanned barcode:", barcode);
     // Here you would typically look up the product by barcode
     setShowScanner(false);
   };
 
+  const handleLogin = (userInfo: { email: string; name: string }) => {
+    setUserData(userInfo);
+    setIsLoggedIn(true);
+  };
+
   if (!isLoggedIn) {
-    return <LoginForm onLogin={() => setIsLoggedIn(true)} />;
+    return <LoginForm onLogin={handleLogin} />;
   }
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-green-50 to-blue-50">
-        <AppSidebar />
+        <AppSidebar userData={userData} />
         <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
@@ -136,7 +163,12 @@ const Index = () => {
             {/* Products Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  onEdit={handleEditProduct}
+                  onDelete={deleteProduct}
+                />
               ))}
             </div>
 
@@ -156,6 +188,13 @@ const Index = () => {
           open={showAddProduct}
           onOpenChange={setShowAddProduct}
           onAddProduct={addProduct}
+        />
+        
+        <EditProductDialog
+          open={showEditProduct}
+          onOpenChange={setShowEditProduct}
+          product={editingProduct}
+          onUpdateProduct={updateProduct}
         />
         
         <BarcodeScanner

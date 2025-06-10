@@ -7,19 +7,54 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Package } from "lucide-react";
 
 interface LoginFormProps {
-  onLogin: () => void;
+  onLogin: (userData: { email: string; name: string }) => void;
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!email) newErrors.email = "Email is required";
+    if (!password) newErrors.password = "Password is required";
+    
+    if (isSignUp) {
+      if (!firstName) newErrors.firstName = "First name is required";
+      if (!lastName) newErrors.lastName = "Last name is required";
+      if (password !== confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+      if (password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // This is where Supabase authentication will be integrated
-    console.log("Login attempt:", { email, password });
-    onLogin();
+    
+    if (!validateForm()) return;
+
+    console.log(isSignUp ? "Sign up attempt:" : "Login attempt:", { 
+      email, 
+      password,
+      ...(isSignUp && { firstName, lastName })
+    });
+    
+    onLogin({ 
+      email, 
+      name: isSignUp ? `${firstName} ${lastName}` : "User" 
+    });
   };
 
   return (
@@ -49,6 +84,37 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isSignUp && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="John"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="h-11"
+                    />
+                    {errors.firstName && (
+                      <p className="text-sm text-red-600">{errors.firstName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="h-11"
+                    />
+                    {errors.lastName && (
+                      <p className="text-sm text-red-600">{errors.lastName}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -57,10 +123,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   className="h-11"
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email}</p>
+                )}
               </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -69,12 +138,32 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   className="h-11"
                 />
+                {errors.password && (
+                  <p className="text-sm text-red-600">{errors.password}</p>
+                )}
               </div>
+              
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="h-11"
+                  />
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-red-600">{errors.confirmPassword}</p>
+                  )}
+                </div>
+              )}
+              
               <Button type="submit" className="w-full h-11 text-base">
-                {isSignUp ? "Sign Up" : "Sign In"}
+                {isSignUp ? "Create Account" : "Sign In"}
               </Button>
             </form>
             
