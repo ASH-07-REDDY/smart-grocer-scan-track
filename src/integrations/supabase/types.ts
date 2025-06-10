@@ -9,27 +9,128 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      grocery_items: {
+      categories: {
         Row: {
           created_at: string | null
           id: string
           name: string
-          quantity: number | null
-          user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
-          quantity?: number | null
-          user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      grocery_items: {
+        Row: {
+          amount: number | null
+          category_id: string | null
+          created_at: string | null
+          expiry_date: string | null
+          id: string
+          image_url: string | null
+          name: string
+          quantity: number | null
+          quantity_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
           quantity?: number | null
+          quantity_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          expiry_date?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          quantity?: number | null
+          quantity_type?: string | null
+          updated_at?: string | null
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grocery_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

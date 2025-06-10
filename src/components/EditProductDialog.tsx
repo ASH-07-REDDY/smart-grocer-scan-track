@@ -7,27 +7,42 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  category_id: string;
+  quantity: number;
+  quantity_type: string;
+  expiry_date: string;
+  amount: number;
+  image_url: string;
+}
+
 interface EditProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  product: any;
+  product: Product | null;
   onUpdateProduct: (product: any) => void;
+  categories: Category[];
 }
 
-export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct }: EditProductDialogProps) {
+export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct, categories }: EditProductDialogProps) {
   const [formData, setFormData] = useState({
-    id: 0,
+    id: "",
     name: "",
-    category: "",
+    category_id: "",
     quantity: "",
-    quantityType: "pieces",
-    expiryDate: "",
+    quantity_type: "pieces",
+    expiry_date: "",
     amount: "",
-    barcode: "",
-    image: ""
+    image_url: ""
   });
 
-  const categories = ["Fruits", "Vegetables", "Dairy", "Meat", "Pantry", "Frozen", "Beverages"];
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
 
   useEffect(() => {
@@ -35,13 +50,12 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
       setFormData({
         id: product.id,
         name: product.name || "",
-        category: product.category || "",
+        category_id: product.category_id || "",
         quantity: product.quantity?.toString() || "",
-        quantityType: product.quantityType || "pieces",
-        expiryDate: product.expiryDate || "",
-        amount: product.amount?.replace('₹', '') || "",
-        barcode: product.barcode || "",
-        image: product.image || ""
+        quantity_type: product.quantity_type || "pieces",
+        expiry_date: product.expiry_date || "",
+        amount: product.amount?.toString() || "",
+        image_url: product.image_url || ""
       });
     }
   }, [product]);
@@ -51,7 +65,7 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFormData({ ...formData, image: e.target?.result as string });
+        setFormData({ ...formData, image_url: e.target?.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -62,8 +76,8 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
     onUpdateProduct({
       ...formData,
       quantity: parseInt(formData.quantity),
-      amount: formData.amount.startsWith('₹') ? formData.amount : `₹${formData.amount}`,
-      image: formData.image || "/placeholder.svg"
+      amount: parseFloat(formData.amount) || 0,
+      image_url: formData.image_url || "/placeholder.svg"
     });
   };
 
@@ -80,8 +94,8 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
             <Label>Product Image</Label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                {formData.image ? (
-                  <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                {formData.image_url ? (
+                  <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <Upload className="w-8 h-8 text-gray-400" />
                 )}
@@ -109,14 +123,14 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
             
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+              <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -140,7 +154,7 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
             
             <div className="space-y-2">
               <Label htmlFor="quantityType">Unit</Label>
-              <Select value={formData.quantityType} onValueChange={(value) => setFormData({ ...formData, quantityType: value })}>
+              <Select value={formData.quantity_type} onValueChange={(value) => setFormData({ ...formData, quantity_type: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -158,6 +172,8 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
               <Label htmlFor="amount">Amount (₹)</Label>
               <Input
                 id="amount"
+                type="number"
+                step="0.01"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="0"
@@ -171,19 +187,9 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
             <Input
               id="expiryDate"
               type="date"
-              value={formData.expiryDate}
-              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+              value={formData.expiry_date}
+              onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="barcode">Barcode (Optional)</Label>
-            <Input
-              id="barcode"
-              value={formData.barcode}
-              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="Enter barcode"
             />
           </div>
 

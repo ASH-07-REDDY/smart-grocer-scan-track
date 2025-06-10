@@ -7,25 +7,50 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 interface AddProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddProduct: (product: any) => void;
+  categories: Category[];
 }
 
-export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProductDialogProps) {
+// Product images for common items
+const productImages = {
+  "Organic Bananas": "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400",
+  "Bananas": "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400",
+  "Milk": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",
+  "Whole Milk": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",
+  "Chicken": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400",
+  "Chicken Breast": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400",
+  "Apples": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400",
+  "Bread": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",
+  "Eggs": "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400",
+  "Rice": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400",
+  "Tomatoes": "https://images.unsplash.com/photo-1546470427-e9e3c520c9ba?w=400",
+  "Onions": "https://images.unsplash.com/photo-1583983088295-726262f04d7e?w=400",
+  "Potatoes": "https://images.unsplash.com/photo-1582515073490-39981397c445?w=400",
+  "Cheese": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32b?w=400",
+  "Yogurt": "https://images.unsplash.com/photo-1567806215840-fb4d7fd3b5b6?w=400",
+  "Orange Juice": "https://images.unsplash.com/photo-1592504002016-481c7de84e26?w=400",
+  "Pasta": "https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=400",
+};
+
+export function AddProductDialog({ open, onOpenChange, onAddProduct, categories }: AddProductDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
-    category: "",
+    category_id: "",
     quantity: "",
-    quantityType: "pieces",
-    expiryDate: "",
+    quantity_type: "pieces",
+    expiry_date: "",
     amount: "",
-    barcode: "",
-    image: ""
+    image_url: ""
   });
 
-  const categories = ["Fruits", "Vegetables", "Dairy", "Meat", "Pantry", "Frozen", "Beverages"];
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,9 +58,22 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFormData({ ...formData, image: e.target?.result as string });
+        setFormData({ ...formData, image_url: e.target?.result as string });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleNameChange = (name: string) => {
+    setFormData({ ...formData, name });
+    
+    // Auto-suggest image based on product name
+    const matchedImage = Object.entries(productImages).find(([key]) => 
+      name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(name.toLowerCase())
+    );
+    
+    if (matchedImage && !formData.image_url) {
+      setFormData(prev => ({ ...prev, image_url: matchedImage[1] }));
     }
   };
 
@@ -44,18 +82,17 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
     onAddProduct({
       ...formData,
       quantity: parseInt(formData.quantity),
-      amount: formData.amount.startsWith('₹') ? formData.amount : `₹${formData.amount}`,
-      image: formData.image || "/placeholder.svg"
+      amount: parseFloat(formData.amount) || 0,
+      image_url: formData.image_url || "/placeholder.svg"
     });
     setFormData({
       name: "",
-      category: "",
+      category_id: "",
       quantity: "",
-      quantityType: "pieces",
-      expiryDate: "",
+      quantity_type: "pieces",
+      expiry_date: "",
       amount: "",
-      barcode: "",
-      image: ""
+      image_url: ""
     });
     onOpenChange(false);
   };
@@ -73,8 +110,8 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
             <Label>Product Image</Label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                {formData.image ? (
-                  <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                {formData.image_url ? (
+                  <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <Upload className="w-8 h-8 text-gray-400" />
                 )}
@@ -94,7 +131,7 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Enter product name"
                 required
               />
@@ -102,14 +139,14 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
             
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+              <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -133,7 +170,7 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
             
             <div className="space-y-2">
               <Label htmlFor="quantityType">Unit</Label>
-              <Select value={formData.quantityType} onValueChange={(value) => setFormData({ ...formData, quantityType: value })}>
+              <Select value={formData.quantity_type} onValueChange={(value) => setFormData({ ...formData, quantity_type: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -151,6 +188,8 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
               <Label htmlFor="amount">Amount (₹)</Label>
               <Input
                 id="amount"
+                type="number"
+                step="0.01"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="0"
@@ -164,19 +203,9 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct }: AddProduc
             <Input
               id="expiryDate"
               type="date"
-              value={formData.expiryDate}
-              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+              value={formData.expiry_date}
+              onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="barcode">Barcode (Optional)</Label>
-            <Input
-              id="barcode"
-              value={formData.barcode}
-              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="Enter barcode"
             />
           </div>
 
