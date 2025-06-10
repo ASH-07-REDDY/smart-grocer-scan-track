@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,12 @@ export function NotificationsView() {
       if (notificationsError) {
         console.error('Error fetching notifications:', notificationsError);
       } else {
-        setNotifications(notificationsData || []);
+        // Cast the type to ensure compatibility
+        const typedNotifications = (notificationsData || []).map(notification => ({
+          ...notification,
+          type: notification.type as 'expiry' | 'product_added' | 'product_removed'
+        }));
+        setNotifications(typedNotifications);
       }
 
       // Fetch products expiring soon
