@@ -8,10 +8,11 @@ import { ProductCard } from "@/components/ProductCard";
 import { AddProductDialog } from "@/components/AddProductDialog";
 import { EditProductDialog } from "@/components/EditProductDialog";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Plus, Search, ScanLine, Filter } from "lucide-react";
+import { Plus, Search, ScanLine, Filter, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { validateProductData, sanitizeInput } from "@/utils/securityValidation";
 
 interface Product {
   id: string;
@@ -44,6 +45,7 @@ export function ProductsView() {
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -118,8 +120,9 @@ export function ProductsView() {
   }, [user, toast]);
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.categories?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const sanitizedSearchTerm = sanitizeInput(searchTerm.toLowerCase());
+    const matchesSearch = product.name.toLowerCase().includes(sanitizedSearchTerm) ||
+                         product.categories?.name.toLowerCase().includes(sanitizedSearchTerm);
     const matchesCategory = selectedCategory === "all" || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   }).sort((a, b) => {
@@ -134,12 +137,38 @@ export function ProductsView() {
   });
 
   const addProduct = async (newProduct: any) => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add products",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate product data
+    const validation = validateProductData(newProduct);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      toast({
+        title: "Validation Error",
+        description: "Please fix the validation errors",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setValidationErrors([]);
 
     const productData = {
-      ...newProduct,
+      name: sanitizeInput(newProduct.name),
+      category_id: newProduct.category_id,
+      quantity: Math.max(0, Math.min(9999, parseInt(newProduct.quantity) || 0)),
+      quantity_type: sanitizeInput(newProduct.quantity_type || 'pieces'),
+      expiry_date: newProduct.expiry_date,
+      amount: Math.max(0, Math.min(999999, parseFloat(newProduct.amount) || 0)),
+      image_url: newProduct.image_url || null,
       user_id: user.id,
-      amount: parseFloat(newProduct.amount) || 0,
     };
 
     const { error } = await supabase
@@ -150,7 +179,7 @@ export function ProductsView() {
       console.error('Error adding product:', error);
       toast({
         title: "Error",
-        description: "Failed to add product",
+        description: "Failed to add product. Please try again.",
         variant: "destructive",
       });
     } else {
@@ -166,7 +195,7 @@ export function ProductsView() {
           {
             user_id: user.id,
             title: "Product Added",
-            message: `${newProduct.name} has been added to your pantry`,
+            message: `${productData.name} has been added to your pantry`,
             type: "product_added",
           }
         ]);
@@ -174,20 +203,51 @@ export function ProductsView() {
   };
 
   const updateProduct = async (updatedProduct: any) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update products",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate product data
+    const validation = validateProductData(updatedProduct);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      toast({
+        title: "Validation Error",
+        description: "Please fix the validation errors",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setValidationErrors([]);
+
+    const productData = {
+      name: sanitizeInput(updatedProduct.name),
+      category_id: updatedProduct.category_id,
+      quantity: Math.max(0, Math.min(9999, parseInt(updatedProduct.quantity) || 0)),
+      quantity_type: sanitizeInput(updatedProduct.quantity_type || 'pieces'),
+      expiry_date: updatedProduct.expiry_date,
+      amount: Math.max(0, Math.min(999999, parseFloat(updatedProduct.amount) || 0)),
+      image_url: updatedProduct.image_url || null,
+      updated_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
       .from('grocery_items')
-      .update({
-        ...updatedProduct,
-        amount: parseFloat(updatedProduct.amount) || 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', updatedProduct.id);
+      .update(productData)
+      .eq('id', updatedProduct.id)
+      .eq('user_id', user.id); // Additional security check
 
     if (error) {
       console.error('Error updating product:', error);
       toast({
         title: "Error",
-        description: "Failed to update product",
+        description: "Failed to update product. Please try again.",
         variant: "destructive",
       });
     } else {
@@ -201,18 +261,28 @@ export function ProductsView() {
   };
 
   const deleteProduct = async (productId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to delete products",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const product = products.find(p => p.id === productId);
     
     const { error } = await supabase
       .from('grocery_items')
       .delete()
-      .eq('id', productId);
+      .eq('id', productId)
+      .eq('user_id', user.id); // Additional security check
 
     if (error) {
       console.error('Error deleting product:', error);
       toast({
         title: "Error",
-        description: "Failed to delete product",
+        description: "Failed to delete product. Please try again.",
         variant: "destructive",
       });
     } else {
@@ -222,7 +292,7 @@ export function ProductsView() {
       });
 
       // Add notification
-      if (product && user) {
+      if (product) {
         await supabase
           .from('notifications')
           .insert([
@@ -240,10 +310,12 @@ export function ProductsView() {
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setShowEditProduct(true);
+    setValidationErrors([]);
   };
 
   const onBarcodeScanned = (barcode: string) => {
-    console.log("Scanned barcode:", barcode);
+    const sanitizedBarcode = sanitizeInput(barcode);
+    console.log("Scanned barcode:", sanitizedBarcode);
     setShowScanner(false);
   };
 
@@ -251,18 +323,6 @@ export function ProductsView() {
     const category = categories.find(c => c.id === categoryId);
     return category?.name || "Unknown";
   };
-
-  const transformedProducts = products.map(product => ({
-    id: parseInt(product.id),
-    name: product.name,
-    category: getCategoryName(product.category_id),
-    quantity: product.quantity,
-    quantityType: product.quantity_type,
-    expiryDate: product.expiry_date,
-    amount: `₹${product.amount}`,
-    image: product.image_url || "/placeholder.svg",
-    barcode: "",
-  }));
 
   if (loading) {
     return (
@@ -274,6 +334,21 @@ export function ProductsView() {
 
   return (
     <div className="space-y-6">
+      {/* Validation Errors Display */}
+      {validationErrors.length > 0 && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center gap-2 text-red-800 text-sm font-medium mb-1">
+            <AlertCircle className="w-4 h-4" />
+            Please fix the following errors:
+          </div>
+          <ul className="text-red-700 text-sm space-y-1">
+            {validationErrors.map((error, index) => (
+              <li key={index} className="ml-2">• {error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -285,7 +360,10 @@ export function ProductsView() {
             <ScanLine className="w-4 h-4 mr-2" />
             Scan Barcode
           </Button>
-          <Button onClick={() => setShowAddProduct(true)} size="lg">
+          <Button onClick={() => {
+            setValidationErrors([]);
+            setShowAddProduct(true);
+          }} size="lg">
             <Plus className="w-4 h-4 mr-2" />
             Add Product
           </Button>
@@ -301,6 +379,7 @@ export function ProductsView() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
+            maxLength={100}
           />
         </div>
         
@@ -361,7 +440,10 @@ export function ProductsView() {
               ? "No products found matching your filters" 
               : "No products found"}
           </p>
-          <Button onClick={() => setShowAddProduct(true)} className="mt-4">
+          <Button onClick={() => {
+            setValidationErrors([]);
+            setShowAddProduct(true);
+          }} className="mt-4">
             Add Your First Product
           </Button>
         </div>
