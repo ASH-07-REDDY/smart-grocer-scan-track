@@ -1,11 +1,11 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload } from "lucide-react";
+import { Upload, Scan } from "lucide-react";
 
 interface Category {
   id: string;
@@ -17,6 +17,7 @@ interface AddProductDialogProps {
   onOpenChange: (open: boolean) => void;
   onAddProduct: (product: any) => void;
   categories: Category[];
+  initialBarcodeData?: any;
 }
 
 // Product images for common items
@@ -40,7 +41,7 @@ const productImages = {
   "Pasta": "https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=400",
 };
 
-export function AddProductDialog({ open, onOpenChange, onAddProduct, categories }: AddProductDialogProps) {
+export function AddProductDialog({ open, onOpenChange, onAddProduct, categories, initialBarcodeData }: AddProductDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
@@ -48,10 +49,40 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories 
     quantity_type: "pieces",
     expiry_date: "",
     amount: "",
-    image_url: ""
+    image_url: "",
+    barcode: ""
   });
 
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
+
+  // Populate form with barcode data when available
+  useEffect(() => {
+    if (initialBarcodeData && open) {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + (initialBarcodeData.default_expiry_days || 30));
+      
+      setFormData(prev => ({
+        ...prev,
+        name: initialBarcodeData.product_name || "",
+        barcode: initialBarcodeData.barcode || "",
+        expiry_date: expiryDate.toISOString().split('T')[0],
+        // Try to match category by name
+        category_id: categories.find(cat => 
+          cat.name.toLowerCase() === initialBarcodeData.category?.toLowerCase()
+        )?.id || "",
+      }));
+
+      // Auto-suggest image based on product name
+      const matchedImage = Object.entries(productImages).find(([key]) => 
+        initialBarcodeData.product_name?.toLowerCase().includes(key.toLowerCase()) || 
+        key.toLowerCase().includes(initialBarcodeData.product_name?.toLowerCase())
+      );
+      
+      if (matchedImage) {
+        setFormData(prev => ({ ...prev, image_url: matchedImage[1] }));
+      }
+    }
+  }, [initialBarcodeData, open, categories]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,7 +123,8 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories 
       quantity_type: "pieces",
       expiry_date: "",
       amount: "",
-      image_url: ""
+      image_url: "",
+      barcode: ""
     });
     onOpenChange(false);
   };
@@ -101,10 +133,25 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {initialBarcodeData && <Scan className="w-5 h-5" />}
+            {initialBarcodeData ? "Add Scanned Product" : "Add New Product"}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {/* Barcode Display */}
+          {initialBarcodeData && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-sm font-medium text-green-800">
+                Scanned Barcode: {initialBarcodeData.barcode}
+              </div>
+              <div className="text-xs text-green-600">
+                Product details have been pre-filled from our database
+              </div>
+            </div>
+          )}
+
           {/* Image Upload */}
           <div className="space-y-2">
             <Label>Product Image</Label>
@@ -152,6 +199,18 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Barcode Field */}
+          <div className="space-y-2">
+            <Label htmlFor="barcode">Barcode (Optional)</Label>
+            <Input
+              id="barcode"
+              value={formData.barcode}
+              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+              placeholder="Enter barcode manually"
+              readOnly={!!initialBarcodeData}
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
