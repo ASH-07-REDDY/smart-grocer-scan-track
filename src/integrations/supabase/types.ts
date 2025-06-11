@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      barcode_products: {
+        Row: {
+          barcode: string
+          brand: string | null
+          category: string | null
+          created_at: string
+          default_expiry_days: number | null
+          id: string
+          nutrition_info: Json | null
+          product_name: string
+          updated_at: string
+        }
+        Insert: {
+          barcode: string
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          default_expiry_days?: number | null
+          id?: string
+          nutrition_info?: Json | null
+          product_name: string
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          default_expiry_days?: number | null
+          id?: string
+          nutrition_info?: Json | null
+          product_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -30,6 +66,7 @@ export type Database = {
       grocery_items: {
         Row: {
           amount: number | null
+          barcode: string | null
           category_id: string | null
           created_at: string | null
           expiry_date: string | null
@@ -43,6 +80,7 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          barcode?: string | null
           category_id?: string | null
           created_at?: string | null
           expiry_date?: string | null
@@ -56,6 +94,7 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          barcode?: string | null
           category_id?: string | null
           created_at?: string | null
           expiry_date?: string | null
@@ -131,6 +170,39 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_notifications: boolean | null
+          expiry_reminder_days: number | null
+          id: string
+          phone_notifications: boolean | null
+          phone_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_notifications?: boolean | null
+          expiry_reminder_days?: number | null
+          id?: string
+          phone_notifications?: boolean | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_notifications?: boolean | null
+          expiry_reminder_days?: number | null
+          id?: string
+          phone_notifications?: boolean | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

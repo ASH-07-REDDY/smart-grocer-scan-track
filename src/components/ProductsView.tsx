@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +7,13 @@ import { ProductCard } from "@/components/ProductCard";
 import { AddProductDialog } from "@/components/AddProductDialog";
 import { EditProductDialog } from "@/components/EditProductDialog";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Plus, Search, ScanLine, Filter, AlertCircle } from "lucide-react";
+import { NotificationPreferences } from "@/components/NotificationPreferences";
+import { Plus, Search, ScanLine, Filter, AlertCircle, Settings, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { validateProductData, sanitizeInput } from "@/utils/securityValidation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface Product {
   id: string;
@@ -23,6 +24,7 @@ interface Product {
   expiry_date: string;
   amount: number;
   image_url: string;
+  barcode: string;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -43,9 +45,11 @@ export function ProductsView() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [barcodeData, setBarcodeData] = useState<any>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -122,7 +126,8 @@ export function ProductsView() {
   const filteredProducts = products.filter(product => {
     const sanitizedSearchTerm = sanitizeInput(searchTerm.toLowerCase());
     const matchesSearch = product.name.toLowerCase().includes(sanitizedSearchTerm) ||
-                         product.categories?.name.toLowerCase().includes(sanitizedSearchTerm);
+                         product.categories?.name.toLowerCase().includes(sanitizedSearchTerm) ||
+                         (product.barcode && product.barcode.includes(sanitizedSearchTerm));
     const matchesCategory = selectedCategory === "all" || product.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   }).sort((a, b) => {
@@ -168,6 +173,7 @@ export function ProductsView() {
       expiry_date: newProduct.expiry_date,
       amount: Math.max(0, Math.min(999999, parseFloat(newProduct.amount) || 0)),
       image_url: newProduct.image_url || null,
+      barcode: newProduct.barcode || null,
       user_id: user.id,
     };
 
@@ -234,6 +240,7 @@ export function ProductsView() {
       expiry_date: updatedProduct.expiry_date,
       amount: Math.max(0, Math.min(999999, parseFloat(updatedProduct.amount) || 0)),
       image_url: updatedProduct.image_url || null,
+      barcode: updatedProduct.barcode || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -313,10 +320,12 @@ export function ProductsView() {
     setValidationErrors([]);
   };
 
-  const onBarcodeScanned = (barcode: string) => {
-    const sanitizedBarcode = sanitizeInput(barcode);
-    console.log("Scanned barcode:", sanitizedBarcode);
+  const onBarcodeScanned = (barcode: string, productData?: any) => {
+    console.log("Scanned barcode:", barcode, "Product data:", productData);
+    setBarcodeData(productData);
     setShowScanner(false);
+    setValidationErrors([]);
+    setShowAddProduct(true);
   };
 
   const getCategoryName = (categoryId: string) => {
@@ -356,12 +365,27 @@ export function ProductsView() {
           <p className="text-gray-600">Manage your grocery inventory</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={showNotificationSettings} onOpenChange={setShowNotificationSettings}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="lg">
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Notification Settings</DialogTitle>
+              </DialogHeader>
+              <NotificationPreferences />
+            </DialogContent>
+          </Dialog>
           <Button onClick={() => setShowScanner(true)} variant="outline" size="lg">
             <ScanLine className="w-4 h-4 mr-2" />
             Scan Barcode
           </Button>
           <Button onClick={() => {
             setValidationErrors([]);
+            setBarcodeData(null);
             setShowAddProduct(true);
           }} size="lg">
             <Plus className="w-4 h-4 mr-2" />
@@ -375,7 +399,7 @@ export function ProductsView() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
-            placeholder="Search products by name or category..."
+            placeholder="Search by name, category, or barcode..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -425,7 +449,7 @@ export function ProductsView() {
               expiryDate: product.expiry_date,
               amount: `₹${product.amount}`,
               image: product.image_url || "/placeholder.svg",
-              barcode: "",
+              barcode: product.barcode || "",
             }}
             onEdit={() => handleEditProduct(product)}
             onDelete={() => deleteProduct(product.id)}
@@ -442,6 +466,7 @@ export function ProductsView() {
           </p>
           <Button onClick={() => {
             setValidationErrors([]);
+            setBarcodeData(null);
             setShowAddProduct(true);
           }} className="mt-4">
             Add Your First Product
@@ -455,6 +480,7 @@ export function ProductsView() {
         onOpenChange={setShowAddProduct}
         onAddProduct={addProduct}
         categories={categories}
+        initialBarcodeData={barcodeData}
       />
       
       <EditProductDialog
