@@ -79,7 +79,7 @@ export function useNotificationSystem() {
           }
 
           // Send notification via edge function
-          await sendNotification({
+          const result = await sendNotification({
             user_id: user.id,
             product: {
               id: product.id,
@@ -94,7 +94,13 @@ export function useNotificationSystem() {
             days_until_expiry: daysUntilExpiry
           });
 
-          console.log(`Email notification sent for ${product.name} (expires in ${daysUntilExpiry} days)`);
+          if (result.success) {
+            console.log(`Email notification sent successfully for ${product.name} (expires in ${daysUntilExpiry} days)`);
+            toast({
+              title: "Notification Sent",
+              description: `Email alert sent for ${product.name} expiring in ${daysUntilExpiry} days`,
+            });
+          }
         }
 
       } catch (error) {
@@ -109,7 +115,7 @@ export function useNotificationSystem() {
     const interval = setInterval(checkExpiryNotifications, 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, toast]);
 
   const sendNotification = async (payload: any) => {
     try {
@@ -124,10 +130,11 @@ export function useNotificationSystem() {
           description: "Failed to send email notification",
           variant: "destructive",
         });
-        return;
+        return { success: false, error };
       }
 
       console.log('Email notification sent successfully:', data);
+      return { success: true, data };
     } catch (error) {
       console.error('Error invoking notification function:', error);
       toast({
@@ -135,6 +142,7 @@ export function useNotificationSystem() {
         description: "Failed to send email notification",
         variant: "destructive",
       });
+      return { success: false, error };
     }
   };
 
@@ -161,7 +169,7 @@ export function useNotificationSystem() {
         return;
       }
 
-      await sendNotification({
+      const result = await sendNotification({
         user_id: user.id,
         product: {
           id: product.id,
@@ -174,6 +182,13 @@ export function useNotificationSystem() {
         },
         notification_type: notificationType
       });
+
+      if (result.success) {
+        toast({
+          title: "Notification Sent",
+          description: `Email alert sent for product ${notificationType.replace('_', ' ')}`,
+        });
+      }
 
     } catch (error) {
       console.error('Error sending product notification:', error);

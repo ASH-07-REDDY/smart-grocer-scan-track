@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Mail, Calendar, Bell } from 'lucide-react';
 
 interface NotificationPrefs {
   email_notifications: boolean;
@@ -87,16 +88,77 @@ export function NotificationPreferences() {
     }
   };
 
+  const testNotification = async () => {
+    if (!user || !prefs.email_notifications) {
+      toast({
+        title: 'Email Notifications Disabled',
+        description: 'Please enable email notifications to test',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-notifications', {
+        body: {
+          user_id: user.id,
+          product: {
+            id: 'test-product-id',
+            name: 'Test Product',
+            category: 'Test Category',
+            quantity: 1,
+            quantity_type: 'piece',
+            amount: 50,
+            expiry_date: new Date().toISOString().split('T')[0]
+          },
+          notification_type: 'expiry',
+          days_until_expiry: 1
+        }
+      });
+
+      if (error) {
+        console.error('Test notification error:', error);
+        toast({
+          title: 'Test Failed',
+          description: 'Failed to send test notification',
+          variant: 'destructive',
+        });
+      } else {
+        console.log('Test notification result:', data);
+        toast({
+          title: 'Test Successful',
+          description: 'Test email notification sent successfully',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast({
+        title: 'Test Failed',
+        description: 'Failed to send test notification',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Card>
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Notification Preferences</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="w-5 h-5" />
+          Email Notification Preferences
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="email-notifications">Email Notifications</Label>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5 flex-1">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-blue-500" />
+                <Label htmlFor="email-notifications" className="font-medium">Email Notifications</Label>
+              </div>
               <p className="text-sm text-gray-500">
                 Receive expiry reminders and product updates via email
               </p>
@@ -110,8 +172,11 @@ export function NotificationPreferences() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reminder-days">Reminder Days Before Expiry</Label>
+          <div className="space-y-2 p-4 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-orange-500" />
+              <Label htmlFor="reminder-days" className="font-medium">Reminder Days Before Expiry</Label>
+            </div>
             <Input
               id="reminder-days"
               type="number"
@@ -124,6 +189,7 @@ export function NotificationPreferences() {
                   expiry_reminder_days: parseInt(e.target.value) || 3,
                 })
               }
+              className="w-24"
             />
             <p className="text-xs text-gray-500">
               Get notified this many days before your products expire (1-30 days)
@@ -131,9 +197,18 @@ export function NotificationPreferences() {
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={loading} className="w-full">
-          {loading ? 'Saving...' : 'Save Preferences'}
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={handleSave} disabled={loading} className="flex-1">
+            {loading ? 'Saving...' : 'Save Preferences'}
+          </Button>
+          <Button 
+            onClick={testNotification} 
+            disabled={loading || !prefs.email_notifications} 
+            variant="outline"
+          >
+            Test Email
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
