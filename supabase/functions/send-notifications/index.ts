@@ -13,8 +13,6 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
 interface NotificationPayload {
   user_id: string;
   product: {
@@ -44,7 +42,7 @@ const handler = async (req: Request): Promise<Response> => {
       .from('user_notification_preferences')
       .select('*')
       .eq('user_id', payload.user_id)
-      .maybeSingle();
+      .limit(1);
 
     if (prefError) {
       console.error("Error fetching user preferences:", prefError);
@@ -54,12 +52,14 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    const userPrefs = preferences && preferences.length > 0 ? preferences[0] : null;
+
     // Get user profile for email
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('email, full_name')
       .eq('id', payload.user_id)
-      .maybeSingle();
+      .single();
 
     if (profileError) {
       console.error("Error fetching user profile:", profileError);
@@ -98,30 +98,50 @@ const handler = async (req: Request): Promise<Response> => {
     const results = [];
 
     // Send email notification
-    if (preferences?.email_notifications && profile?.email) {
+    if (userPrefs?.email_notifications && profile?.email) {
       try {
-        const emailResult = await sendEmailNotification(
-          profile.email,
-          profile.full_name || "User",
-          payload,
-          notification.id
-        );
-        results.push(emailResult);
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        if (!resendApiKey) {
+          console.error("RESEND_API_KEY not configured");
+          await logDeliveryStatus(notification.id, 'email', 'failed', { error: 'RESEND_API_KEY not configured' });
+        } else {
+          const resend = new Resend(resendApiKey);
+          const emailResult = await sendEmailNotification(
+            resend,
+            profile.email,
+            profile.full_name || "User",
+            payload,
+            notification.id
+          );
+          results.push(emailResult);
+        }
       } catch (error) {
         console.error("Email sending failed:", error);
         await logDeliveryStatus(notification.id, 'email', 'failed', { error: error.message });
       }
     }
 
-    // Send SMS notification
-    if (preferences?.phone_notifications && preferences?.phone_number) {
+    // Send SMS notification for Indian numbers
+    if (userPrefs?.phone_notifications && userPrefs?.phone_number) {
       try {
-        const smsResult = await sendSMSNotification(
-          preferences.phone_number,
-          payload,
-          notification.id
-        );
-        results.push(smsResult);
+        const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+        const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+        const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+        
+        if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+          console.error("Twilio credentials not configured");
+          await logDeliveryStatus(notification.id, 'sms', 'failed', { error: 'Twilio credentials not configured' });
+        } else {
+          const smsResult = await sendSMSNotification(
+            userPrefs.phone_number,
+            payload,
+            notification.id,
+            twilioAccountSid,
+            twilioAuthToken,
+            twilioPhoneNumber
+          );
+          results.push(smsResult);
+        }
       } catch (error) {
         console.error("SMS sending failed:", error);
         await logDeliveryStatus(notification.id, 'sms', 'failed', { error: error.message });
@@ -147,6 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function sendEmailNotification(
+  resend: any,
   email: string, 
   userName: string, 
   payload: NotificationPayload,
@@ -169,24 +190,28 @@ async function sendEmailNotification(
 async function sendSMSNotification(
   phoneNumber: string,
   payload: NotificationPayload,
-  notificationId: string
+  notificationId: string,
+  twilioAccountSid: string,
+  twilioAuthToken: string,
+  twilioPhoneNumber: string
 ) {
   const message = getSMSMessage(payload);
   
-  // Using Twilio for SMS - you'll need TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
-  const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
-
-  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-    throw new Error("Twilio credentials not configured");
+  // Ensure Indian phone number format
+  let formattedNumber = phoneNumber;
+  if (!phoneNumber.startsWith('+')) {
+    if (phoneNumber.startsWith('91')) {
+      formattedNumber = `+${phoneNumber}`;
+    } else if (phoneNumber.length === 10) {
+      formattedNumber = `+91${phoneNumber}`;
+    }
   }
-
+  
   const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
   
   const formData = new URLSearchParams();
   formData.append('From', twilioPhoneNumber);
-  formData.append('To', phoneNumber);
+  formData.append('To', formattedNumber);
   formData.append('Body', message);
 
   const response = await fetch(twilioUrl, {

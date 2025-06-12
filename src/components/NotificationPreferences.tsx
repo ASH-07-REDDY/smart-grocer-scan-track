@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { validateEmail } from '@/utils/securityValidation';
 
 interface NotificationPrefs {
   email_notifications: boolean;
@@ -36,19 +35,21 @@ export function NotificationPreferences() {
         .from('user_notification_preferences')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (error) {
         console.error('Error fetching preferences:', error);
         return;
       }
 
-      if (data) {
+      // Take the first record if multiple exist
+      if (data && data.length > 0) {
+        const preference = data[0];
         setPrefs({
-          email_notifications: data.email_notifications || false,
-          phone_notifications: data.phone_notifications || false,
-          phone_number: data.phone_number || '',
-          expiry_reminder_days: data.expiry_reminder_days || 3,
+          email_notifications: preference.email_notifications || false,
+          phone_notifications: preference.phone_notifications || false,
+          phone_number: preference.phone_number || '',
+          expiry_reminder_days: preference.expiry_reminder_days || 3,
         });
       }
     };
@@ -56,32 +57,66 @@ export function NotificationPreferences() {
     fetchPreferences();
   }, [user]);
 
+  const validateIndianPhoneNumber = (phone: string): boolean => {
+    // Remove all non-digit characters
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Check if it starts with +91 or 91 and has 10 more digits
+    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+      return true;
+    }
+    
+    // Check if it's just 10 digits (assuming Indian number)
+    if (cleanPhone.length === 10) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  const formatIndianPhoneNumber = (phone: string): string => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (cleanPhone.length === 10) {
+      return `+91${cleanPhone}`;
+    }
+    
+    if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+      return `+${cleanPhone}`;
+    }
+    
+    return phone;
+  };
+
   const handleSave = async () => {
     if (!user) return;
 
     // Validate phone number if phone notifications are enabled
-    if (prefs.phone_notifications && !prefs.phone_number) {
-      toast({
-        title: 'Validation Error',
-        description: 'Phone number is required for phone notifications',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (prefs.phone_notifications) {
+      if (!prefs.phone_number) {
+        toast({
+          title: 'Validation Error',
+          description: 'Phone number is required for SMS notifications',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    // Validate phone number format
-    if (prefs.phone_number && !/^\+?[\d\s-()]+$/.test(prefs.phone_number)) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please enter a valid phone number',
-        variant: 'destructive',
-      });
-      return;
+      if (!validateIndianPhoneNumber(prefs.phone_number)) {
+        toast({
+          title: 'Invalid Phone Number',
+          description: 'Please enter a valid Indian phone number (10 digits or +91 followed by 10 digits)',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
+      const formattedPhoneNumber = prefs.phone_number ? formatIndianPhoneNumber(prefs.phone_number) : null;
+
       const { error } = await supabase
         .from('user_notification_preferences')
         .upsert([
@@ -89,7 +124,7 @@ export function NotificationPreferences() {
             user_id: user.id,
             email_notifications: prefs.email_notifications,
             phone_notifications: prefs.phone_notifications,
-            phone_number: prefs.phone_number || null,
+            phone_number: formattedPhoneNumber,
             expiry_reminder_days: prefs.expiry_reminder_days,
             updated_at: new Date().toISOString(),
           }
@@ -138,9 +173,9 @@ export function NotificationPreferences() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="phone-notifications">Phone Notifications</Label>
+              <Label htmlFor="phone-notifications">SMS Notifications</Label>
               <p className="text-sm text-gray-500">
-                Receive expiry reminders via SMS
+                Receive expiry reminders via SMS (Indian numbers only)
               </p>
             </div>
             <Switch
@@ -154,7 +189,7 @@ export function NotificationPreferences() {
 
           {prefs.phone_notifications && (
             <div className="space-y-2">
-              <Label htmlFor="phone-number">Phone Number</Label>
+              <Label htmlFor="phone-number">Indian Phone Number</Label>
               <Input
                 id="phone-number"
                 type="tel"
@@ -162,8 +197,11 @@ export function NotificationPreferences() {
                 onChange={(e) =>
                   setPrefs({ ...prefs, phone_number: e.target.value })
                 }
-                placeholder="+1 (555) 123-4567"
+                placeholder="+91 9876543210 or 9876543210"
               />
+              <p className="text-xs text-gray-500">
+                Enter a valid Indian phone number (10 digits or +91 followed by 10 digits)
+              </p>
             </div>
           )}
 
