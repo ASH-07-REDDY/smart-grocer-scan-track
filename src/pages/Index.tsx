@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { useNotificationSystem } from "@/hooks/useNotificationSystem";
 import { AuthForm } from "@/components/AuthForm";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import { DashboardStats } from "@/components/DashboardStats";
@@ -10,11 +11,14 @@ import { NotificationsView } from "@/components/NotificationsView";
 import { SettingsView } from "@/components/SettingsView";
 import { supabase } from "@/integrations/supabase/client";
 
-function AppContent() {
+function Index() {
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState("dashboard");
   const [products, setProducts] = useState([]);
+
+  // Initialize notification system
+  useNotificationSystem();
 
   useEffect(() => {
     if (!user) return;
@@ -135,13 +139,5 @@ function AppContent() {
     </div>
   );
 }
-
-const Index = () => {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
-};
 
 export default Index;
