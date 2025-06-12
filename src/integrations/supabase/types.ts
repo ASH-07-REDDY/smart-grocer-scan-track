@@ -116,12 +116,52 @@ export type Database = {
           },
         ]
       }
+      notification_delivery_log: {
+        Row: {
+          created_at: string | null
+          delivery_details: Json | null
+          delivery_method: string
+          delivery_status: string
+          id: string
+          notification_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivery_details?: Json | null
+          delivery_method: string
+          delivery_status: string
+          id?: string
+          notification_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivery_details?: Json | null
+          delivery_method?: string
+          delivery_status?: string
+          id?: string
+          notification_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_log_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
           id: string
           is_read: boolean | null
           message: string
+          product_details: Json | null
+          product_id: string | null
           title: string
           type: string
           user_id: string
@@ -131,6 +171,8 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message: string
+          product_details?: Json | null
+          product_id?: string | null
           title: string
           type: string
           user_id: string
@@ -140,11 +182,21 @@ export type Database = {
           id?: string
           is_read?: boolean | null
           message?: string
+          product_details?: Json | null
+          product_id?: string | null
           title?: string
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "grocery_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

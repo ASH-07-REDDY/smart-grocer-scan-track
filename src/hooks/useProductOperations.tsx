@@ -3,10 +3,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateProductData, sanitizeInput } from "@/utils/securityValidation";
+import { useNotificationSystem } from "@/hooks/useNotificationSystem";
 
 export function useProductOperations() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { sendProductNotification } = useNotificationSystem();
 
   const addProduct = async (newProduct: any, setValidationErrors: (errors: string[]) => void) => {
     if (!user) {
@@ -43,9 +45,11 @@ export function useProductOperations() {
       user_id: user.id,
     };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('grocery_items')
-      .insert([productData]);
+      .insert([productData])
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding product:', error);
@@ -60,16 +64,10 @@ export function useProductOperations() {
         description: "Product added successfully",
       });
       
-      await supabase
-        .from('notifications')
-        .insert([
-          {
-            user_id: user.id,
-            title: "Product Added",
-            message: `${productData.name} has been added to your pantry`,
-            type: "product_added",
-          }
-        ]);
+      // Send notification for the added product
+      if (data?.id) {
+        await sendProductNotification(data.id, 'product_added');
+      }
     }
   };
 
@@ -141,8 +139,6 @@ export function useProductOperations() {
       return;
     }
 
-    const product = products.find(p => p.id === productId);
-    
     const { error } = await supabase
       .from('grocery_items')
       .delete()
@@ -162,18 +158,8 @@ export function useProductOperations() {
         description: "Product deleted successfully",
       });
 
-      if (product) {
-        await supabase
-          .from('notifications')
-          .insert([
-            {
-              user_id: user.id,
-              title: "Product Removed",
-              message: `${product.name} has been removed from your pantry`,
-              type: "product_removed",
-            }
-          ]);
-      }
+      // Send notification for the removed product
+      await sendProductNotification(productId, 'product_removed');
     }
   };
 
