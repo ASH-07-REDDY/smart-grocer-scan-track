@@ -22,6 +22,11 @@ export function useNotificationSystem() {
           .eq('user_id', user.id)
           .maybeSingle();
 
+        if (!preferences?.email_notifications) {
+          console.log('Email notifications disabled for user');
+          return;
+        }
+
         const reminderDays = preferences?.expiry_reminder_days || 3;
         
         // Calculate date range for expiring products
@@ -89,7 +94,7 @@ export function useNotificationSystem() {
             days_until_expiry: daysUntilExpiry
           });
 
-          console.log(`Notification sent for ${product.name} (expires in ${daysUntilExpiry} days)`);
+          console.log(`Email notification sent for ${product.name} (expires in ${daysUntilExpiry} days)`);
         }
 
       } catch (error) {
@@ -116,15 +121,20 @@ export function useNotificationSystem() {
         console.error('Error sending notification:', error);
         toast({
           title: "Notification Error",
-          description: "Failed to send notification",
+          description: "Failed to send email notification",
           variant: "destructive",
         });
         return;
       }
 
-      console.log('Notification sent successfully:', data);
+      console.log('Email notification sent successfully:', data);
     } catch (error) {
       console.error('Error invoking notification function:', error);
+      toast({
+        title: "Notification Error",
+        description: "Failed to send email notification",
+        variant: "destructive",
+      });
     }
   };
 
