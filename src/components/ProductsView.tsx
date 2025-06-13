@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AddProductDialog } from "@/components/AddProductDialog";
 import { EditProductDialog } from "@/components/EditProductDialog";
@@ -141,7 +140,7 @@ export function ProductsView() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    await deleteProduct(productId, products);
+    await deleteProduct(productId);
   };
 
   const handleEditProduct = (product: Product) => {
