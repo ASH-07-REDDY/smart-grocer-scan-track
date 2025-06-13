@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,17 @@ export function ProductsGrid({
     }
   };
 
+  // Filter out expired products
+  const activeProducts = products.filter(product => {
+    if (!product.expiry_date) return true;
+    
+    const expiryDate = new Date(product.expiry_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return expiryDate >= today;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -59,13 +71,13 @@ export function ProductsGrid({
     );
   }
 
-  if (products.length === 0) {
+  if (activeProducts.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 text-lg">
           {searchTerm || selectedCategory !== "all" 
-            ? "No products found matching your filters" 
-            : "No products found"}
+            ? "No active products found matching your filters" 
+            : "No active products found"}
         </p>
         <Button onClick={onAddProduct} className="mt-4">
           Add Your First Product
@@ -76,7 +88,7 @@ export function ProductsGrid({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {products.map((product) => (
+      {activeProducts.map((product) => (
         <ProductCard 
           key={product.id} 
           product={{

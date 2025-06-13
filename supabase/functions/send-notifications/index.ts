@@ -35,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const payload: NotificationPayload = await req.json();
-    console.log("Processing notification:", payload);
+    console.log("Processing notification:", JSON.stringify(payload, null, 2));
 
     // Get user profile for email
     const { data: profile, error: profileError } = await supabase
@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (profileError || !profile?.email) {
-      console.error("Error fetching user profile or no email:", profileError);
+      console.error("Error fetching user profile:", profileError);
       return new Response(JSON.stringify({ 
         success: false,
         error: "No email found for user" 
@@ -55,6 +55,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    console.log(`Found user email: ${profile.email}`);
+
     // Get user preferences
     const { data: preferences } = await supabase
       .from('user_notification_preferences')
@@ -63,6 +65,17 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     const userPrefs = preferences || { email_notifications: true };
+
+    if (!userPrefs.email_notifications) {
+      console.log("Email notifications disabled for user");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Email notifications disabled" 
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
     // Create notification record
     const { data: notification, error: notificationError } = await supabase
@@ -97,70 +110,58 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Send email notification if enabled
-    if (userPrefs?.email_notifications && profile?.email) {
-      try {
-        const resendApiKey = Deno.env.get("RESEND_API_KEY");
-        if (!resendApiKey) {
-          console.error("RESEND_API_KEY not configured");
-          await logDeliveryStatus(notification.id, 'email', 'failed', { error: 'RESEND_API_KEY not configured' });
-          return new Response(JSON.stringify({ 
-            success: false,
-            error: "Email service not configured" 
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          });
-        }
-
-        const resend = new Resend(resendApiKey);
-        console.log(`Attempting to send email to: ${profile.email}`);
-        
-        const emailSubject = getEmailSubject(payload);
-        const emailHtml = getEmailHTML(profile.full_name || "User", payload);
-
-        const emailResult = await resend.emails.send({
-          from: "Pantry Manager <onboarding@resend.dev>",
-          to: [profile.email],
-          subject: emailSubject,
-          html: emailHtml,
-        });
-
-        console.log("Email sent successfully:", emailResult);
-        await logDeliveryStatus(notification.id, 'email', 'sent', emailResult);
-
-        return new Response(JSON.stringify({ 
-          success: true, 
-          notification_id: notification.id,
-          email_sent: true,
-          email_result: emailResult
-        }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-
-      } catch (error) {
-        console.error("Email sending failed:", error);
-        await logDeliveryStatus(notification.id, 'email', 'failed', { error: error.message });
-        return new Response(JSON.stringify({ 
-          success: false,
-          error: `Failed to send email: ${error.message}` 
-        }), {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
+    // Send email notification using Resend
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY not configured");
+      await logDeliveryStatus(notification.id, 'email', 'failed', { error: 'RESEND_API_KEY not configured' });
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Email service not configured" 
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      notification_id: notification.id,
-      email_sent: false,
-      message: "Email notifications disabled or no email address" 
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    const resend = new Resend(resendApiKey);
+    console.log(`Sending email to: ${profile.email}`);
+    
+    const emailSubject = getEmailSubject(payload);
+    const emailHtml = getEmailHTML(profile.full_name || "User", payload);
+
+    try {
+      const emailResult = await resend.emails.send({
+        from: "Pantry Manager <onboarding@resend.dev>",
+        to: [profile.email],
+        subject: emailSubject,
+        html: emailHtml,
+      });
+
+      console.log("Email sent successfully:", emailResult);
+      await logDeliveryStatus(notification.id, 'email', 'sent', emailResult);
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        notification_id: notification.id,
+        email_sent: true,
+        email_result: emailResult
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      await logDeliveryStatus(notification.id, 'email', 'failed', { error: emailError.message });
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: `Failed to send email: ${emailError.message}` 
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
 
   } catch (error) {
     console.error("Error in notification function:", error);

@@ -63,19 +63,21 @@ export function useNotificationSystem() {
           const diffTime = expiryDate.getTime() - today.getTime();
           const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Check if we already sent a notification for this product today (within last 24 hours)
-          const twentyFourHoursAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+          // Check if we already sent a notification for this product today
+          const startOfDay = new Date(today);
+          startOfDay.setHours(0, 0, 0, 0);
+          
           const { data: existingNotification } = await supabase
             .from('notifications')
             .select('id')
             .eq('user_id', user.id)
             .eq('product_id', product.id)
             .eq('type', 'expiry')
-            .gte('created_at', twentyFourHoursAgo.toISOString())
+            .gte('created_at', startOfDay.toISOString())
             .maybeSingle();
 
           if (existingNotification) {
-            console.log(`Notification already sent for product ${product.name} in the last 24 hours`);
+            console.log(`Notification already sent today for product ${product.name}`);
             continue;
           }
 
@@ -108,8 +110,8 @@ export function useNotificationSystem() {
     // Initial check
     checkExpiryNotifications();
 
-    // Set up interval to check every 24 hours instead of every hour
-    const interval = setInterval(checkExpiryNotifications, 24 * 60 * 60 * 1000);
+    // Set up interval to check every 6 hours
+    const interval = setInterval(checkExpiryNotifications, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [user, toast]);
@@ -122,11 +124,6 @@ export function useNotificationSystem() {
 
       if (error) {
         console.error('Error sending notification:', error);
-        toast({
-          title: "Notification Error",
-          description: "Failed to send email notification",
-          variant: "destructive",
-        });
         return { success: false, error };
       }
 
@@ -134,11 +131,6 @@ export function useNotificationSystem() {
       return { success: true, data };
     } catch (error) {
       console.error('Error invoking notification function:', error);
-      toast({
-        title: "Notification Error",
-        description: "Failed to send email notification",
-        variant: "destructive",
-      });
       return { success: false, error };
     }
   };

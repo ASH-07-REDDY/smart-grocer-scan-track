@@ -34,10 +34,14 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Create a more detailed prompt for better image generation
-    const prompt = `A high-quality, professional product photograph of ${productName}${category ? ` from the ${category} category` : ''}, clean white background, studio lighting, commercial photography style, realistic, no text or labels, centered composition, 4K quality`;
+    // Create optimized prompts for better image generation
+    const basePrompt = `professional product photograph of ${productName}`;
+    const categoryContext = category ? ` ${category} item` : '';
+    const stylePrompt = `, clean white background, commercial photography, high quality, centered, well-lit`;
+    
+    const prompt = `${basePrompt}${categoryContext}${stylePrompt}`;
 
-    console.log(`Using prompt: ${prompt}`);
+    console.log(`Using optimized prompt: ${prompt}`);
 
     const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
@@ -60,9 +64,9 @@ const handler = async (req: Request): Promise<Response> => {
       const errorText = await imageResponse.text();
       console.error("OpenAI API error:", errorText);
       
-      // Try with a simpler prompt if the first one fails
-      const simplePrompt = `A photo of ${productName}, white background, product photography`;
-      console.log(`Retrying with simpler prompt: ${simplePrompt}`);
+      // Fallback with simpler prompt
+      const fallbackPrompt = `${productName} product photo, white background`;
+      console.log(`Retrying with fallback prompt: ${fallbackPrompt}`);
       
       const retryResponse = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
@@ -72,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
         },
         body: JSON.stringify({
           model: "dall-e-3",
-          prompt: simplePrompt,
+          prompt: fallbackPrompt,
           n: 1,
           size: "1024x1024",
           quality: "standard",
@@ -82,10 +86,10 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (!retryResponse.ok) {
         const retryErrorText = await retryResponse.text();
-        console.error("OpenAI API retry error:", retryErrorText);
+        console.error("OpenAI API retry failed:", retryErrorText);
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Failed to generate image after retry" 
+          error: "Failed to generate image after retry attempts" 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -98,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (!retryImageUrl) {
         return new Response(JSON.stringify({ 
           success: false,
-          error: "No image URL returned from retry" 
+          error: "No image URL returned from retry attempt" 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -109,7 +113,7 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ 
         success: true, 
         imageUrl: retryImageUrl,
-        prompt: simplePrompt
+        prompt: fallbackPrompt
       }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -122,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (!imageUrl) {
       return new Response(JSON.stringify({ 
         success: false,
-        error: "No image URL returned" 
+        error: "No image URL returned from OpenAI" 
       }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

@@ -4,11 +4,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { validateProductData, sanitizeInput } from "@/utils/securityValidation";
 import { useNotificationSystem } from "@/hooks/useNotificationSystem";
+import { useProductImages } from "@/hooks/useProductImages";
 
 export function useProductOperations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { sendProductNotification } = useNotificationSystem();
+  const { generateProductImage } = useProductImages();
 
   const addProduct = async (newProduct: any, setValidationErrors: (errors: string[]) => void) => {
     if (!user) {
@@ -33,6 +35,17 @@ export function useProductOperations() {
 
     setValidationErrors([]);
 
+    // Generate AI image automatically
+    let aiImageUrl = null;
+    try {
+      console.log('Generating AI image for product:', newProduct.name);
+      aiImageUrl = await generateProductImage(newProduct.name, newProduct.category_name);
+      console.log('AI image generated:', aiImageUrl);
+    } catch (error) {
+      console.error('Failed to generate AI image:', error);
+      // Continue without image if generation fails
+    }
+
     const productData = {
       name: sanitizeInput(newProduct.name),
       category_id: newProduct.category_id,
@@ -40,7 +53,7 @@ export function useProductOperations() {
       quantity_type: sanitizeInput(newProduct.quantity_type || 'pieces'),
       expiry_date: newProduct.expiry_date,
       amount: Math.max(0, Math.min(999999, parseFloat(newProduct.amount) || 0)),
-      image_url: newProduct.image_url || null,
+      image_url: aiImageUrl || newProduct.image_url || null,
       barcode: newProduct.barcode || null,
       user_id: user.id,
     };
@@ -61,7 +74,7 @@ export function useProductOperations() {
     } else {
       toast({
         title: "Success",
-        description: "Product added successfully",
+        description: "Product added successfully with AI-generated image",
       });
       
       // Send notification for the added product
@@ -129,37 +142,51 @@ export function useProductOperations() {
     }
   };
 
-  const deleteProduct = async (productId: string, products: any[]) => {
+  const deleteProduct = async (productId: string) => {
     if (!user) {
       toast({
         title: "Error",
         description: "You must be logged in to delete products",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
-    const { error } = await supabase
-      .from('grocery_items')
-      .delete()
-      .eq('id', productId)
-      .eq('user_id', user.id);
+    try {
+      console.log('Attempting to delete product:', productId);
+      
+      const { error } = await supabase
+        .from('grocery_items')
+        .delete()
+        .eq('id', productId)
+        .eq('user_id', user.id);
 
-    if (error) {
-      console.error('Error deleting product:', error);
+      if (error) {
+        console.error('Error deleting product:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete product. Please try again.",
+          variant: "destructive",
+        });
+        return false;
+      } else {
+        toast({
+          title: "Success",
+          description: "Product deleted successfully",
+        });
+
+        // Send notification for the removed product
+        await sendProductNotification(productId, 'product_removed');
+        return true;
+      }
+    } catch (error) {
+      console.error('Unexpected error deleting product:', error);
       toast({
         title: "Error",
-        description: "Failed to delete product. Please try again.",
+        description: "An unexpected error occurred while deleting the product.",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Product deleted successfully",
-      });
-
-      // Send notification for the removed product
-      await sendProductNotification(productId, 'product_removed');
+      return false;
     }
   };
 
