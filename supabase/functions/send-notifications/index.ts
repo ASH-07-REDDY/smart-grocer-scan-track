@@ -37,6 +37,18 @@ const handler = async (req: Request): Promise<Response> => {
     const payload: NotificationPayload = await req.json();
     console.log("Processing notification:", JSON.stringify(payload, null, 2));
 
+    // Validate required fields
+    if (!payload.user_id || !payload.product || !payload.notification_type) {
+      console.error("Missing required fields in payload");
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Missing required fields" 
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     // Get user profile for email
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -109,6 +121,8 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    console.log("Notification record created:", notification.id);
 
     // Send email notification using Resend
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -190,6 +204,7 @@ async function logDeliveryStatus(
         delivery_status: status,
         delivery_details: details
       });
+    console.log(`Delivery status logged: ${status} for notification ${notificationId}`);
   } catch (error) {
     console.error("Error logging delivery status:", error);
   }

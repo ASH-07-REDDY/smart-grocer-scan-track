@@ -152,17 +152,46 @@ export function useProductOperations() {
       return false;
     }
 
+    if (!productId) {
+      console.error('No product ID provided for deletion');
+      toast({
+        title: "Error",
+        description: "Invalid product ID",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      console.log('Attempting to delete product:', productId);
+      console.log('Attempting to delete product with ID:', productId);
       
-      const { error } = await supabase
+      // First, fetch the product to get its details for notification
+      const { data: productToDelete, error: fetchError } = await supabase
+        .from('grocery_items')
+        .select('*')
+        .eq('id', productId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching product for deletion:', fetchError);
+        toast({
+          title: "Error",
+          description: "Product not found or access denied",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Now delete the product
+      const { error: deleteError } = await supabase
         .from('grocery_items')
         .delete()
         .eq('id', productId)
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error deleting product:', error);
+      if (deleteError) {
+        console.error('Error deleting product:', deleteError);
         toast({
           title: "Error",
           description: "Failed to delete product. Please try again.",
@@ -170,9 +199,10 @@ export function useProductOperations() {
         });
         return false;
       } else {
+        console.log('Product deleted successfully:', productToDelete.name);
         toast({
           title: "Success",
-          description: "Product deleted successfully",
+          description: `Product "${productToDelete.name}" deleted successfully`,
         });
 
         // Send notification for the removed product

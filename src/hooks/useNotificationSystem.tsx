@@ -99,6 +99,8 @@ export function useNotificationSystem() {
 
           if (result.success) {
             console.log(`Email notification sent successfully for ${product.name} (expires in ${daysUntilExpiry} days)`);
+          } else {
+            console.error(`Failed to send notification for ${product.name}:`, result.error);
           }
         }
 
@@ -118,6 +120,8 @@ export function useNotificationSystem() {
 
   const sendNotification = async (payload: any) => {
     try {
+      console.log('Sending notification with payload:', payload);
+      
       const { data, error } = await supabase.functions.invoke('send-notifications', {
         body: payload
       });
@@ -177,6 +181,8 @@ export function useNotificationSystem() {
           title: "Notification Sent",
           description: `Email alert sent for product ${notificationType.replace('_', ' ')}`,
         });
+      } else {
+        console.error('Failed to send product notification:', result.error);
       }
 
     } catch (error) {
