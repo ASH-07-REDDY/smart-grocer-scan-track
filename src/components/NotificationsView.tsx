@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,89 +32,6 @@ export function NotificationsView() {
 
   useEffect(() => {
     if (!user) return;
-
-    const fetchNotifications = async () => {
-      setLoading(true);
-      
-      // Fetch existing notifications
-      const { data: notificationsData, error: notificationsError } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (notificationsError) {
-        console.error('Error fetching notifications:', notificationsError);
-      } else {
-        // Cast the type to ensure compatibility
-        const typedNotifications = (notificationsData || []).map(notification => ({
-          ...notification,
-          type: notification.type as 'expiry' | 'product_added' | 'product_removed'
-        }));
-        setNotifications(typedNotifications);
-      }
-
-      // Fetch products expiring soon
-      const today = new Date();
-      const threeDaysFromNow = new Date(today);
-      threeDaysFromNow.setDate(today.getDate() + 3);
-
-      const { data: productsData, error: productsError } = await supabase
-        .from('grocery_items')
-        .select('id, name, expiry_date')
-        .eq('user_id', user.id)
-        .lte('expiry_date', threeDaysFromNow.toISOString().split('T')[0]);
-
-      if (productsError) {
-        console.error('Error fetching expiring products:', productsError);
-      } else {
-        setExpiringProducts(productsData || []);
-        
-        // Create expiry notifications for products expiring soon
-        const expiredProducts = (productsData || []).filter(product => {
-          const expiryDate = new Date(product.expiry_date);
-          const diffTime = expiryDate.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 3 && diffDays >= 0;
-        });
-
-        for (const product of expiredProducts) {
-          const expiryDate = new Date(product.expiry_date);
-          const diffTime = expiryDate.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          let message = "";
-          if (diffDays === 0) {
-            message = `${product.name} expires today!`;
-          } else if (diffDays === 1) {
-            message = `${product.name} expires tomorrow!`;
-          } else {
-            message = `${product.name} expires in ${diffDays} days`;
-          }
-
-          // Check if notification already exists
-          const existingNotification = notificationsData?.find(n => 
-            n.type === 'expiry' && n.message.includes(product.name)
-          );
-
-          if (!existingNotification) {
-            await supabase
-              .from('notifications')
-              .insert([
-                {
-                  user_id: user.id,
-                  title: "Product Expiring Soon",
-                  message,
-                  type: "expiry",
-                }
-              ]);
-          }
-        }
-      }
-
-      setLoading(false);
-    };
-
     fetchNotifications();
 
     // Set up real-time subscription for notifications
@@ -138,11 +56,54 @@ export function NotificationsView() {
     };
   }, [user]);
 
+  const fetchNotifications = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    
+    // Fetch existing notifications
+    const { data: notificationsData, error: notificationsError } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (notificationsError) {
+      console.error('Error fetching notifications:', notificationsError);
+    } else {
+      const typedNotifications = (notificationsData || []).map(notification => ({
+        ...notification,
+        type: notification.type as 'expiry' | 'product_added' | 'product_removed'
+      }));
+      setNotifications(typedNotifications);
+    }
+
+    // Fetch products expiring soon
+    const today = new Date();
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(today.getDate() + 3);
+
+    const { data: productsData, error: productsError } = await supabase
+      .from('grocery_items')
+      .select('id, name, expiry_date')
+      .eq('user_id', user.id)
+      .lte('expiry_date', threeDaysFromNow.toISOString().split('T')[0]);
+
+    if (productsError) {
+      console.error('Error fetching expiring products:', productsError);
+    } else {
+      setExpiringProducts(productsData || []);
+    }
+
+    setLoading(false);
+  };
+
   const markAsRead = async (notificationId: string) => {
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
-      .eq('id', notificationId);
+      .eq('id', notificationId)
+      .eq('user_id', user?.id);
 
     if (error) {
       console.error('Error marking notification as read:', error);
@@ -151,6 +112,11 @@ export function NotificationsView() {
         description: "Failed to mark notification as read",
         variant: "destructive",
       });
+    } else {
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+      );
     }
   };
 
@@ -158,7 +124,8 @@ export function NotificationsView() {
     const { error } = await supabase
       .from('notifications')
       .delete()
-      .eq('id', notificationId);
+      .eq('id', notificationId)
+      .eq('user_id', user?.id);
 
     if (error) {
       console.error('Error deleting notification:', error);
@@ -168,6 +135,8 @@ export function NotificationsView() {
         variant: "destructive",
       });
     } else {
+      // Update local state
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
       toast({
         title: "Success",
         description: "Notification deleted",
@@ -190,6 +159,10 @@ export function NotificationsView() {
         variant: "destructive",
       });
     } else {
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true }))
+      );
       toast({
         title: "Success",
         description: "All notifications marked as read",

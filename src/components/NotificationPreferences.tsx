@@ -100,11 +100,14 @@ export function NotificationPreferences() {
 
     setLoading(true);
     try {
+      // Generate a valid UUID for the test product
+      const testProductId = crypto.randomUUID();
+      
       const { data, error } = await supabase.functions.invoke('send-notifications', {
         body: {
           user_id: user.id,
           product: {
-            id: 'test-product-id',
+            id: testProductId,
             name: 'Test Product',
             category: 'Test Category',
             quantity: 1,
@@ -160,7 +163,7 @@ export function NotificationPreferences() {
                 <Label htmlFor="email-notifications" className="font-medium">Email Notifications</Label>
               </div>
               <p className="text-sm text-gray-500">
-                Receive expiry reminders and product updates via email
+                Receive expiry reminders and product updates via email (once per day per product)
               </p>
             </div>
             <Switch

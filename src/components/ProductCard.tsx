@@ -2,8 +2,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useProductImages } from "@/hooks/useProductImages";
+import { useState } from "react";
 
 interface Product {
   id: number;
@@ -21,9 +23,13 @@ interface ProductCardProps {
   product: Product;
   onEdit?: (product: Product) => void;
   onDelete?: (productId: number) => void;
+  onImageUpdate?: (productId: number, imageUrl: string) => void;
 }
 
-export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: ProductCardProps) {
+  const { generateProductImage, generating } = useProductImages();
+  const [currentImage, setCurrentImage] = useState(product.image);
+
   const isExpiringSoon = () => {
     const expiryDate = new Date(product.expiryDate);
     const today = new Date();
@@ -48,6 +54,14 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleGenerateImage = async () => {
+    const imageUrl = await generateProductImage(product.name, product.category);
+    if (imageUrl) {
+      setCurrentImage(imageUrl);
+      onImageUpdate?.(product.id, imageUrl);
+    }
+  };
+
   return (
     <Card className="group hover:shadow-lg transition-all duration-200 border-0 shadow-md bg-white">
       <CardContent className="p-4 space-y-3">
@@ -55,7 +69,7 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
         <div className="relative">
           <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
             <img 
-              src={product.image} 
+              src={currentImage} 
               alt={product.name}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -64,30 +78,42 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
               }}
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onEdit?.(product)}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Product
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600"
-                onClick={() => onDelete?.(product.id)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="absolute top-2 right-2 flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleGenerateImage}
+              disabled={generating}
+              className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-2"
+              title="Generate AI Image"
+            >
+              <Sparkles className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => onEdit?.(product)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Product
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-red-600"
+                  onClick={() => onDelete?.(product.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Product Info */}

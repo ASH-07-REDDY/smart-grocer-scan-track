@@ -69,6 +69,14 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    if (!profile?.email) {
+      console.error("No email found for user");
+      return new Response(JSON.stringify({ error: "No email found for user" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     // Create notification record
     const { data: notification, error: notificationError } = await supabase
       .from('notifications')
@@ -171,12 +179,13 @@ async function sendEmailNotification(
   const htmlContent = getEmailHTML(userName, payload);
 
   const emailResponse = await resend.emails.send({
-    from: "Pantry Manager <notifications@resend.dev>",
+    from: "Pantry Manager <onboarding@resend.dev>",
     to: [email],
     subject: subject,
     html: htmlContent,
   });
 
+  console.log("Email sent successfully:", emailResponse);
   await logDeliveryStatus(notificationId, 'email', 'sent', emailResponse);
   return { method: 'email', status: 'sent', result: emailResponse };
 }

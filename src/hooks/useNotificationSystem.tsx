@@ -63,18 +63,19 @@ export function useNotificationSystem() {
           const diffTime = expiryDate.getTime() - today.getTime();
           const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Check if we already sent a notification for this product today
+          // Check if we already sent a notification for this product today (within last 24 hours)
+          const twentyFourHoursAgo = new Date(today.getTime() - 24 * 60 * 60 * 1000);
           const { data: existingNotification } = await supabase
             .from('notifications')
             .select('id')
             .eq('user_id', user.id)
             .eq('product_id', product.id)
             .eq('type', 'expiry')
-            .gte('created_at', today.toISOString().split('T')[0])
+            .gte('created_at', twentyFourHoursAgo.toISOString())
             .maybeSingle();
 
           if (existingNotification) {
-            console.log(`Notification already sent for product ${product.name} today`);
+            console.log(`Notification already sent for product ${product.name} in the last 24 hours`);
             continue;
           }
 
@@ -96,10 +97,6 @@ export function useNotificationSystem() {
 
           if (result.success) {
             console.log(`Email notification sent successfully for ${product.name} (expires in ${daysUntilExpiry} days)`);
-            toast({
-              title: "Notification Sent",
-              description: `Email alert sent for ${product.name} expiring in ${daysUntilExpiry} days`,
-            });
           }
         }
 
@@ -111,8 +108,8 @@ export function useNotificationSystem() {
     // Initial check
     checkExpiryNotifications();
 
-    // Set up interval to check every hour
-    const interval = setInterval(checkExpiryNotifications, 60 * 60 * 1000);
+    // Set up interval to check every 24 hours instead of every hour
+    const interval = setInterval(checkExpiryNotifications, 24 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [user, toast]);
