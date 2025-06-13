@@ -1,6 +1,6 @@
-
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -39,6 +39,18 @@ export function ProductsGrid({
   onDeleteProduct,
   onAddProduct
 }: ProductsGridProps) {
+  const handleImageUpdate = async (productId: number, imageUrl: string) => {
+    // Update the product image in the database
+    const { error } = await supabase
+      .from('grocery_items')
+      .update({ image_url: imageUrl })
+      .eq('id', productId.toString());
+
+    if (error) {
+      console.error('Error updating product image:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -80,6 +92,7 @@ export function ProductsGrid({
           }}
           onEdit={() => onEditProduct(product)}
           onDelete={() => onDeleteProduct(product.id)}
+          onImageUpdate={handleImageUpdate}
         />
       ))}
     </div>

@@ -37,23 +37,6 @@ const handler = async (req: Request): Promise<Response> => {
     const payload: NotificationPayload = await req.json();
     console.log("Processing notification:", payload);
 
-    // Get user preferences
-    const { data: preferences, error: prefError } = await supabase
-      .from('user_notification_preferences')
-      .select('*')
-      .eq('user_id', payload.user_id)
-      .limit(1);
-
-    if (prefError) {
-      console.error("Error fetching user preferences:", prefError);
-      return new Response(JSON.stringify({ error: "Failed to fetch user preferences" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const userPrefs = preferences && preferences.length > 0 ? preferences[0] : null;
-
     // Get user profile for email
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -61,21 +44,25 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('id', payload.user_id)
       .single();
 
-    if (profileError) {
-      console.error("Error fetching user profile:", profileError);
-      return new Response(JSON.stringify({ error: "Failed to fetch user profile" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    if (!profile?.email) {
-      console.error("No email found for user");
-      return new Response(JSON.stringify({ error: "No email found for user" }), {
+    if (profileError || !profile?.email) {
+      console.error("Error fetching user profile or no email:", profileError);
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "No email found for user" 
+      }), {
         status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+
+    // Get user preferences
+    const { data: preferences } = await supabase
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('user_id', payload.user_id)
+      .single();
+
+    const userPrefs = preferences || { email_notifications: true };
 
     // Create notification record
     const { data: notification, error: notificationError } = await supabase
@@ -101,7 +88,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (notificationError) {
       console.error("Error creating notification:", notificationError);
-      return new Response(JSON.stringify({ error: "Failed to create notification" }), {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Failed to create notification" 
+      }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -114,26 +104,36 @@ const handler = async (req: Request): Promise<Response> => {
         if (!resendApiKey) {
           console.error("RESEND_API_KEY not configured");
           await logDeliveryStatus(notification.id, 'email', 'failed', { error: 'RESEND_API_KEY not configured' });
-          return new Response(JSON.stringify({ error: "Email service not configured" }), {
+          return new Response(JSON.stringify({ 
+            success: false,
+            error: "Email service not configured" 
+          }), {
             status: 500,
             headers: { "Content-Type": "application/json", ...corsHeaders },
           });
         }
 
         const resend = new Resend(resendApiKey);
-        const emailResult = await sendEmailNotification(
-          resend,
-          profile.email,
-          profile.full_name || "User",
-          payload,
-          notification.id
-        );
+        console.log(`Attempting to send email to: ${profile.email}`);
+        
+        const emailSubject = getEmailSubject(payload);
+        const emailHtml = getEmailHTML(profile.full_name || "User", payload);
+
+        const emailResult = await resend.emails.send({
+          from: "Pantry Manager <onboarding@resend.dev>",
+          to: [profile.email],
+          subject: emailSubject,
+          html: emailHtml,
+        });
+
+        console.log("Email sent successfully:", emailResult);
+        await logDeliveryStatus(notification.id, 'email', 'sent', emailResult);
 
         return new Response(JSON.stringify({ 
           success: true, 
           notification_id: notification.id,
           email_sent: true,
-          delivery_result: emailResult 
+          email_result: emailResult
         }), {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -142,53 +142,37 @@ const handler = async (req: Request): Promise<Response> => {
       } catch (error) {
         console.error("Email sending failed:", error);
         await logDeliveryStatus(notification.id, 'email', 'failed', { error: error.message });
-        return new Response(JSON.stringify({ error: "Failed to send email notification" }), {
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: `Failed to send email: ${error.message}` 
+        }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
-    } else {
-      return new Response(JSON.stringify({ 
-        success: true, 
-        notification_id: notification.id,
-        email_sent: false,
-        message: "Email notifications disabled or no email address" 
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
     }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      notification_id: notification.id,
+      email_sent: false,
+      message: "Email notifications disabled or no email address" 
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
 
   } catch (error) {
     console.error("Error in notification function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error.message 
+    }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
 };
-
-async function sendEmailNotification(
-  resend: any,
-  email: string, 
-  userName: string, 
-  payload: NotificationPayload,
-  notificationId: string
-) {
-  const subject = getEmailSubject(payload);
-  const htmlContent = getEmailHTML(userName, payload);
-
-  const emailResponse = await resend.emails.send({
-    from: "Pantry Manager <onboarding@resend.dev>",
-    to: [email],
-    subject: subject,
-    html: htmlContent,
-  });
-
-  console.log("Email sent successfully:", emailResponse);
-  await logDeliveryStatus(notificationId, 'email', 'sent', emailResponse);
-  return { method: 'email', status: 'sent', result: emailResponse };
-}
 
 async function logDeliveryStatus(
   notificationId: string,
@@ -196,14 +180,18 @@ async function logDeliveryStatus(
   status: string,
   details: any
 ) {
-  await supabase
-    .from('notification_delivery_log')
-    .insert({
-      notification_id: notificationId,
-      delivery_method: method,
-      delivery_status: status,
-      delivery_details: details
-    });
+  try {
+    await supabase
+      .from('notification_delivery_log')
+      .insert({
+        notification_id: notificationId,
+        delivery_method: method,
+        delivery_status: status,
+        delivery_details: details
+      });
+  } catch (error) {
+    console.error("Error logging delivery status:", error);
+  }
 }
 
 function getNotificationTitle(payload: NotificationPayload): string {
@@ -255,10 +243,16 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
   const { product, days_until_expiry } = payload;
   
   return `
+    <!DOCTYPE html>
     <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Pantry Manager Notification</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0; font-size: 28px;">🥘 Pantry Manager</h1>
+          <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🥘 Pantry Manager</h1>
           <h2 style="margin: 10px 0 0 0; font-size: 20px; font-weight: normal;">${getNotificationTitle(payload)}</h2>
         </div>
         
@@ -313,27 +307,7 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
                 `This product expires in ${days_until_expiry} days. Please plan accordingly.`}
             </p>
           </div>
-          ` : payload.notification_type === 'product_added' ? `
-          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
-            <div style="font-size: 24px; margin-bottom: 10px;">✅</div>
-            <p style="margin: 0; font-weight: bold; color: #16a34a; font-size: 16px;">
-              Successfully added to your pantry!
-            </p>
-          </div>
-          ` : payload.notification_type === 'product_removed' ? `
-          <div style="background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); border: 2px solid #fcd34d; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
-            <div style="font-size: 24px; margin-bottom: 10px;">🗑️</div>
-            <p style="margin: 0; font-weight: bold; color: #d97706; font-size: 16px;">
-              Removed from your pantry
-            </p>
-          </div>
           ` : ''}
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="#" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
-              📱 Open Pantry Manager
-            </a>
-          </div>
         </div>
         
         <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border: 1px solid #e1e8ed; border-top: none;">
