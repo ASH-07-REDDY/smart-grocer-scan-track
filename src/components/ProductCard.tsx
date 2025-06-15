@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles } from "lucide-react";
+import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useState } from "react";
@@ -153,6 +153,19 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
                 {isExpired() ? "Expired" : isExpiringSoon() ? "Soon" : "Fresh"}
               </Badge>
             </div>
+          </div>
+          
+          {/* Mark as Used Button */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <Button 
+              onClick={() => onDelete?.(product.id)}
+              variant="outline"
+              size="sm"
+              className="w-full text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 hover:border-green-300"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Mark as Used
+            </Button>
           </div>
         </div>
       </CardContent>
