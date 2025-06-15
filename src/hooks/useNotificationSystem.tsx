@@ -29,8 +29,9 @@ export function useNotificationSystem() {
 
         const reminderDays = preferences?.expiry_reminder_days || 3;
         const today = new Date();
+        const todayString = today.toISOString().split('T')[0];
         
-        // Check for expired products first
+        // Check for expired products (expiry date is in the past)
         const { data: expiredProducts, error: expiredError } = await supabase
           .from('grocery_items')
           .select(`
@@ -38,17 +39,18 @@ export function useNotificationSystem() {
             categories (name)
           `)
           .eq('user_id', user.id)
-          .lt('expiry_date', today.toISOString().split('T')[0]);
+          .lt('expiry_date', todayString);
 
         if (!expiredError && expiredProducts?.length > 0) {
           for (const product of expiredProducts) {
-            // Check if we already sent an expired notification for this product
+            // Check if we already sent an expired notification for this product today
             const { data: existingExpiredNotification } = await supabase
               .from('notifications')
-              .select('id')
+              .select('id, created_at')
               .eq('user_id', user.id)
               .eq('product_id', product.id)
               .eq('type', 'expired')
+              .gte('created_at', todayString)
               .maybeSingle();
 
             if (!existingExpiredNotification) {
@@ -71,11 +73,11 @@ export function useNotificationSystem() {
           }
         }
         
-        // Calculate date range for expiring products
+        // Calculate date range for expiring products (within reminder days, including today)
         const futureDate = new Date(today);
         futureDate.setDate(today.getDate() + reminderDays);
 
-        // Fetch products expiring within the reminder period (not expired)
+        // Fetch products expiring within the reminder period (including today, not expired)
         const { data: expiringProducts, error } = await supabase
           .from('grocery_items')
           .select(`
@@ -83,7 +85,7 @@ export function useNotificationSystem() {
             categories (name)
           `)
           .eq('user_id', user.id)
-          .gte('expiry_date', today.toISOString().split('T')[0])
+          .gte('expiry_date', todayString)
           .lte('expiry_date', futureDate.toISOString().split('T')[0]);
 
         if (error) {
@@ -104,22 +106,22 @@ export function useNotificationSystem() {
           const diffTime = expiryDate.getTime() - today.getTime();
           const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Check if we already sent ANY expiry notification for this product (not just today)
-          // We only want ONE notification per product when it starts expiring
+          // Check if we already sent an expiry notification for this product today
           const { data: existingNotification } = await supabase
             .from('notifications')
-            .select('id')
+            .select('id, created_at')
             .eq('user_id', user.id)
             .eq('product_id', product.id)
             .eq('type', 'expiry')
+            .gte('created_at', todayString)
             .maybeSingle();
 
           if (existingNotification) {
-            console.log(`Expiry notification already exists for product ${product.name}`);
+            console.log(`Expiry notification already sent today for product ${product.name}`);
             continue;
           }
 
-          // Send notification via edge function
+          // Send daily notification for products expiring within reminder period
           const result = await sendNotification({
             user_id: user.id,
             product: {
@@ -136,7 +138,7 @@ export function useNotificationSystem() {
           });
 
           if (result.success) {
-            console.log(`Email notification sent successfully for ${product.name} (expires in ${daysUntilExpiry} days)`);
+            console.log(`Daily expiry notification sent for ${product.name} (expires in ${daysUntilExpiry} days)`);
           } else {
             console.error(`Failed to send notification for ${product.name}:`, result.error);
           }
@@ -150,8 +152,8 @@ export function useNotificationSystem() {
     // Initial check
     checkExpiryNotifications();
 
-    // Set up interval to check every 6 hours
-    const interval = setInterval(checkExpiryNotifications, 6 * 60 * 60 * 1000);
+    // Set up interval to check daily (24 hours)
+    const interval = setInterval(checkExpiryNotifications, 24 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [user, toast]);
