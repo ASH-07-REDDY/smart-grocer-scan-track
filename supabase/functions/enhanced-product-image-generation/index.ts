@@ -100,34 +100,8 @@ async function generateWithOpenAI(prompt: string) {
   try {
     console.log(`Generating image with prompt: ${prompt}`);
     
-    // Try gpt-image-1 first (newer model)
-    let res = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-image-1",
-        prompt,
-        size: "1024x1024",
-        quality: "high",
-        output_format: "png"
-      })
-    });
-
-    let data = await res.json();
-    console.log("OpenAI gpt-image-1 response status:", res.status);
-
-    if (res.ok && data.data && data.data[0]?.b64_json) {
-      console.log("OpenAI gpt-image-1 generation successful");
-      const base64Image = data.data[0].b64_json;
-      return { success: true, imageUrl: `data:image/png;base64,${base64Image}` };
-    }
-
-    // Fallback to DALL-E 3 if gpt-image-1 fails
-    console.log("Trying DALL-E 3 fallback...");
-    res = await fetch("https://api.openai.com/v1/images/generations", {
+    // Use DALL-E 3 directly (more reliable)
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -135,23 +109,29 @@ async function generateWithOpenAI(prompt: string) {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt,
+        prompt: prompt.slice(0, 4000), // Ensure prompt is within limits
         n: 1,
         size: "1024x1024",
         quality: "standard",
+        style: "natural",
         response_format: "url"
       })
     });
 
-    data = await res.json();
+    const data = await res.json();
     console.log("OpenAI DALL-E 3 response status:", res.status);
+    
+    if (!res.ok) {
+      console.error("OpenAI API error:", data);
+      return { success: false, error: data.error?.message || `HTTP ${res.status}` };
+    }
 
-    if (res.ok && data.data && data.data[0]?.url) {
+    if (data.data && data.data[0]?.url) {
       console.log("OpenAI DALL-E 3 generation successful");
       return { success: true, imageUrl: data.data[0].url };
     } else {
-      console.error("OpenAI response error:", data);
-      return { success: false, error: data.error?.message || "Unknown OpenAI error" };
+      console.error("No image URL in response:", data);
+      return { success: false, error: "No image generated" };
     }
   } catch (e) {
     console.error("OpenAI fetch error:", e);
