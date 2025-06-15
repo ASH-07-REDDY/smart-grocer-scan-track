@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
-import { generatePlaceholderImage, generateSVGPlaceholder } from "@/utils/placeholderImages";
 import { useAutoImageAssignment } from "@/hooks/useAutoImageAssignment";
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
   category: string;
   quantity: number;
@@ -23,17 +22,17 @@ interface Product {
 interface ProductCardProps {
   product: Product;
   onEdit?: (product: Product) => void;
-  onDelete?: (productId: number) => void;
-  onImageUpdate?: (productId: number, imageUrl: string) => void;
+  onDelete?: (productId: string) => void;
+  onImageUpdate?: (productId: string, imageUrl: string) => void;
 }
 
 export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: ProductCardProps) {
   const { downloadAndAssignImage, downloading } = useAutoImageAssignment();
   const [currentImage, setCurrentImage] = useState(() => {
-    // Use existing image or generate placeholder
+    // Use existing image or default fallback
     return product.image && product.image !== "/placeholder.svg" 
       ? product.image 
-      : generatePlaceholderImage(product.name, product.category);
+      : `data:image/svg+xml,${encodeURIComponent(`<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#f3f4f6"/><text x="200" y="200" font-family="Arial" font-size="24" text-anchor="middle" fill="#9ca3af">No Image</text></svg>`)}`;
   });
   const [imageError, setImageError] = useState(false);
 
@@ -63,7 +62,7 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
 
   const handleGenerateImage = async () => {
     console.log(`Generating AI image for product: ${product.name}, category: ${product.category}`);
-    const imageUrl = await downloadAndAssignImage(product.id.toString(), product.name, product.category);
+    const imageUrl = await downloadAndAssignImage(product.id, product.name, product.category);
     if (imageUrl) {
       setCurrentImage(imageUrl);
       setImageError(false);
@@ -73,8 +72,8 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
 
   const handleImageError = () => {
     if (!imageError) {
-      // Use SVG fallback if image fails to load
-      const svgFallback = generateSVGPlaceholder(product.name, product.category);
+      // Use simple SVG fallback if image fails to load
+      const svgFallback = `data:image/svg+xml,${encodeURIComponent(`<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#f3f4f6"/><text x="200" y="220" font-family="Arial" font-size="48" text-anchor="middle" fill="#9ca3af">${product.name.slice(0, 2).toUpperCase()}</text><text x="200" y="260" font-family="Arial" font-size="16" text-anchor="middle" fill="#9ca3af">${product.category}</text></svg>`)}`;
       setCurrentImage(svgFallback);
       setImageError(true);
     }

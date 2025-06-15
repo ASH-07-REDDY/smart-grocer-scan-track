@@ -29,7 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Using prompt: ${prompt}`);
 
-    // Try OpenAI first - most reliable
+    // Try OpenAI first and only
     const openaiResult = await generateWithOpenAI(prompt);
     if (openaiResult.success && openaiResult.imageUrl) {
       console.log("Image generated successfully with OpenAI");
@@ -43,22 +43,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Try Hugging Face as fallback
-    const hfResult = await generateWithHuggingFace(prompt);
-    if (hfResult.success && hfResult.imageUrl) {
-      console.log("Image generated successfully with Hugging Face");
-      return new Response(JSON.stringify({
-        success: true,
-        imageUrl: hfResult.imageUrl,
-        provider: "Hugging Face"
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // If both fail, try with a very simple prompt
-    const simplePrompt = `${productName} product photo`;
+    // If first attempt fails, try with a simpler prompt
+    const simplePrompt = `${productName}, product photo, white background`;
     console.log(`Retrying with simple prompt: ${simplePrompt}`);
     
     const simpleOpenaiResult = await generateWithOpenAI(simplePrompt);
@@ -74,25 +60,25 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Final fallback - return success without image
-    console.log("All generation attempts failed, proceeding without image");
+    // If all attempts fail
+    console.log("All OpenAI generation attempts failed");
     return new Response(JSON.stringify({
-      success: true,
-      imageUrl: null,
-      provider: "Fallback"
+      success: false,
+      error: "Failed to generate image with OpenAI",
+      provider: "None"
     }), {
-      status: 200,
+      status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
 
   } catch (error) {
     console.error("Error in simple image generation:", error);
     return new Response(JSON.stringify({
-      success: true,
-      imageUrl: null,
-      provider: "Error Fallback"
+      success: false,
+      error: error.message,
+      provider: "Error"
     }), {
-      status: 200,
+      status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
@@ -106,9 +92,9 @@ async function generateWithOpenAI(prompt: string) {
   }
 
   try {
-    console.log("Attempting OpenAI generation...");
+    console.log("Attempting OpenAI generation with prompt:", prompt);
     
-    // Use DALL-E 3 - more reliable than the new models
+    // Use gpt-image-1 model for better results
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -116,23 +102,34 @@ async function generateWithOpenAI(prompt: string) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
-        style: "natural",
-        response_format: "url"
+        quality: "high",
+        output_format: "png"
       }),
     });
 
     if (response.ok) {
       const data = await response.json();
-      const imageUrl = data.data[0]?.url;
-      if (imageUrl) {
-        console.log("OpenAI generation successful");
+      console.log("OpenAI response received:", JSON.stringify(data, null, 2));
+      
+      // gpt-image-1 returns base64 data directly
+      if (data.data && data.data[0] && data.data[0].b64_json) {
+        const base64Image = data.data[0].b64_json;
+        const imageUrl = `data:image/png;base64,${base64Image}`;
+        console.log("OpenAI generation successful - base64 image received");
         return { success: true, imageUrl };
       }
+      
+      // Fallback for URL response
+      if (data.data && data.data[0] && data.data[0].url) {
+        console.log("OpenAI generation successful - URL received");
+        return { success: true, imageUrl: data.data[0].url };
+      }
+      
+      console.error("Unexpected OpenAI response format:", data);
     } else {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
@@ -145,55 +142,6 @@ async function generateWithOpenAI(prompt: string) {
   }
 }
 
-async function generateWithHuggingFace(prompt: string) {
-  const apiKey = Deno.env.get("HUGGING_FACE_ACCESS_TOKEN");
-  if (!apiKey) {
-    console.log("Hugging Face API key not available");
-    return { success: false };
-  }
-
-  try {
-    console.log("Attempting Hugging Face generation...");
-    
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            width: 1024,
-            height: 1024,
-            guidance_scale: 7.5,
-            num_inference_steps: 4
-          }
-        }),
-      }
-    );
-
-    if (response.ok) {
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      console.log("Hugging Face generation successful");
-      return {
-        success: true,
-        imageUrl: `data:image/png;base64,${base64}`
-      };
-    } else {
-      const errorText = await response.text();
-      console.error("Hugging Face API error:", response.status, errorText);
-    }
-
-    return { success: false };
-  } catch (error) {
-    console.error("Hugging Face generation error:", error);
-    return { success: false };
-  }
-}
+// Remove Hugging Face function since we only use OpenAI
 
 serve(handler);

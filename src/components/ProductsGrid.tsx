@@ -40,12 +40,12 @@ export function ProductsGrid({
   onDeleteProduct,
   onAddProduct
 }: ProductsGridProps) {
-  const handleImageUpdate = async (productId: number, imageUrl: string) => {
+  const handleImageUpdate = async (productId: string, imageUrl: string) => {
     // Update the product image in the database
     const { error } = await supabase
       .from('grocery_items')
       .update({ image_url: imageUrl })
-      .eq('id', productId.toString());
+      .eq('id', productId);
 
     if (error) {
       console.error('Error updating product image:', error);
@@ -92,7 +92,7 @@ export function ProductsGrid({
         <ProductCard 
           key={product.id} 
           product={{
-            id: parseInt(product.id),
+            id: product.id,
             name: product.name,
             category: getCategoryName(product.category_id),
             quantity: product.quantity,

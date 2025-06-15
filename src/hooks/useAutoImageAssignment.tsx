@@ -18,7 +18,7 @@ export function useAutoImageAssignment() {
     try {
       console.log(`Generating AI image for: ${productName} (${category})`);
       
-      // First try AI image generation
+      // Only use AI image generation - no fallback to download service
       const aiImageUrl = await generateProductImage(productName, category);
       
       if (aiImageUrl) {
@@ -30,6 +30,12 @@ export function useAutoImageAssignment() {
 
         if (updateError) {
           console.error('Error updating product with AI image:', updateError);
+          toast({
+            title: "Database Update Failed",
+            description: "AI image generated but couldn't save to database",
+            variant: "destructive",
+          });
+          return null;
         } else {
           console.log(`AI image assigned to product ${productId}: ${aiImageUrl}`);
           toast({
@@ -40,35 +46,12 @@ export function useAutoImageAssignment() {
         }
       }
 
-      // Fallback to download service if AI generation fails
-      console.log('AI generation failed, falling back to download service');
-      const { data, error } = await supabase.functions.invoke('download-product-image', {
-        body: {
-          productName,
-          category,
-          productId
-        }
+      // If AI generation fails, show error
+      toast({
+        title: "AI Generation Failed", 
+        description: "Could not generate AI image for this product",
+        variant: "destructive",
       });
-
-      if (error) {
-        console.error('Error downloading product image:', error);
-        toast({
-          title: "Image Assignment Failed",
-          description: "Could not generate or download image for product",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      if (data?.success && data?.imageUrl) {
-        console.log(`Fallback image downloaded and assigned: ${data.imageUrl}`);
-        toast({
-          title: "Image Downloaded",
-          description: `Fallback image assigned for ${productName}`,
-        });
-        return data.imageUrl;
-      }
-
       return null;
     } catch (error) {
       console.error('Error in image assignment:', error);
