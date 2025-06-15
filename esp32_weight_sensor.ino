@@ -6,8 +6,8 @@
 #include <ArduinoJson.h>
 
 // WiFi credentials
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "Aashrith";
+const char* password = "aashrith0206";
 
 // Supabase configuration
 const char* supabaseUrl = "https://yzcpouogmvmfycnrauqr.supabase.co";
@@ -24,21 +24,23 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 HX711 scale;
 
 // Configuration
-float calibration_factor = 2280.0;
+float calibration_factor = 2280.0; // Common starting value - adjust as needed
 String sensorId = "ESP32_SCALE_001"; // Unique sensor ID
 String userId = "YOUR_USER_ID"; // Replace with actual user ID
 String productId = ""; // Will be set when product is detected
 String currentBarcode = ""; // Current product barcode
+bool calibrationMode = false;
 
 // Timing variables
 unsigned long lastWeightSend = 0;
 const unsigned long SEND_INTERVAL = 5000; // Send data every 5 seconds
 float lastSentWeight = 0;
-const float WEIGHT_THRESHOLD = 0.05; // Only send if weight changes by more than 50g
+const float WEIGHT_THRESHOLD = 50; // Only send if weight changes by more than 50g
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Smart Scale with Supabase Integration");
+  Serial.println("Send 'c' to enter calibration mode");
 
   // Initialize LCD
   lcd.init();
@@ -81,6 +83,7 @@ void setup() {
   scale.tare();
 
   Serial.println("Sensor Ready and Tared");
+  Serial.println("Current calibration factor: " + String(calibration_factor));
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Sensor Ready");
@@ -90,23 +93,98 @@ void setup() {
 }
 
 void loop() {
-  // Get the average weight (over 5 readings)
-  float weight = scale.get_units(5);
-  
-  // Convert to grams for better precision
-  float weightGrams = weight * 1000;
+  // Check for calibration command
+  if (Serial.available()) {
+    char command = Serial.read();
+    if (command == 'c' || command == 'C') {
+      enterCalibrationMode();
+      return;
+    }
+  }
 
-  // Display current weight
-  displayWeight(weightGrams);
+  if (!calibrationMode) {
+    // Get the average weight (over 5 readings)
+    float weight = scale.get_units(5);
+    
+    // Convert to grams for better precision
+    float weightGrams = weight * 1000;
 
-  // Check if we should send data to Supabase
-  if (shouldSendData(weightGrams)) {
-    sendWeightToSupabase(weightGrams);
-    lastSentWeight = weightGrams;
-    lastWeightSend = millis();
+    // Display current weight
+    displayWeight(weightGrams);
+
+    // Check if we should send data to Supabase
+    if (shouldSendData(weightGrams)) {
+      sendWeightToSupabase(weightGrams);
+      lastSentWeight = weightGrams;
+      lastWeightSend = millis();
+    }
   }
 
   delay(1000);
+}
+
+void enterCalibrationMode() {
+  calibrationMode = true;
+  Serial.println("\n=== CALIBRATION MODE ===");
+  Serial.println("1. Remove all weight from scale");
+  Serial.println("2. Send 't' to tare (zero)");
+  Serial.println("3. Place known weight (e.g., 100g, 500g, 1kg)");
+  Serial.println("4. Send weight value (e.g., 100, 500, 1000)");
+  Serial.println("5. Send 'e' to exit calibration");
+  
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Calibration Mode");
+  lcd.setCursor(0, 1);
+  lcd.print("Check Serial...");
+
+  while (calibrationMode) {
+    if (Serial.available()) {
+      String input = Serial.readString();
+      input.trim();
+      
+      if (input == "t" || input == "T") {
+        scale.tare();
+        Serial.println("Scale tared (zeroed)");
+        lcd.setCursor(0, 1);
+        lcd.print("Tared!         ");
+      }
+      else if (input == "e" || input == "E") {
+        calibrationMode = false;
+        Serial.println("Exiting calibration mode");
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Calibration Done");
+        lcd.setCursor(0, 1);
+        lcd.print("Factor: " + String(calibration_factor, 0));
+        delay(2000);
+      }
+      else {
+        // Try to parse as weight value
+        float knownWeight = input.toFloat();
+        if (knownWeight > 0) {
+          float reading = scale.get_units(10);
+          if (reading != 0) {
+            calibration_factor = reading / (knownWeight / 1000.0); // Convert grams to kg
+            scale.set_scale(calibration_factor);
+            Serial.println("Known weight: " + String(knownWeight) + "g");
+            Serial.println("Raw reading: " + String(reading));
+            Serial.println("New calibration factor: " + String(calibration_factor));
+            Serial.println("Test reading: " + String(scale.get_units(5) * 1000) + "g");
+          } else {
+            Serial.println("Error: No weight detected");
+          }
+        }
+      }
+    }
+    
+    // Show current reading during calibration
+    float currentReading = scale.get_units(1) * 1000;
+    Serial.print("Current: ");
+    Serial.print(currentReading, 1);
+    Serial.println("g");
+    delay(1000);
+  }
 }
 
 void displayWeight(float weightGrams) {
