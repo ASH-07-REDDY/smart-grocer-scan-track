@@ -235,39 +235,39 @@ void sendWeightToSupabase(float weightGrams) {
   }
 
   HTTPClient http;
-  http.begin(String(supabaseUrl) + "/rest/v1/weights");
+  // Use the ESP32 weight receiver edge function
+  http.begin(String(supabaseUrl) + "/functions/v1/esp32-weight-receiver");
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", supabaseKey);
-  http.addHeader("Authorization", "Bearer " + String(supabaseKey));
-  http.addHeader("Prefer", "return=minimal");
 
-  // Create JSON payload
+  // Create JSON payload for the edge function
   DynamicJsonDocument doc(1024);
   doc["sensor_id"] = sensorId;
   doc["user_id"] = userId;
   doc["weight_value"] = weightGrams;
-  doc["unit"] = "grams";
   
-  // Add product_id if we have a barcode
-  if (productId != "") {
-    doc["product_id"] = productId;
-  }
+  // Use a demo barcode if no specific product is set
+  // You can modify this to cycle through test barcodes or use barcode scanner
+  String testBarcodes[] = {"123456789012", "234567890123", "345678901234"};
+  String barcode = testBarcodes[millis() / 30000 % 3]; // Change every 30 seconds
+  doc["barcode"] = barcode;
   
   // Add sensor metadata
   doc["signal_strength"] = WiFi.RSSI();
   doc["battery_level"] = 85; // You can add actual battery monitoring
+  doc["temperature"] = 22.5; // You can add temperature sensor
   
   String jsonString;
   serializeJson(doc, jsonString);
 
-  Serial.println("Sending to Supabase: " + jsonString);
+  Serial.println("Sending to Edge Function: " + jsonString);
 
   int httpResponseCode = http.POST(jsonString);
   
   if (httpResponseCode > 0) {
     String response = http.getString();
     Serial.println("HTTP Response: " + String(httpResponseCode));
-    if (httpResponseCode == 201) {
+    if (httpResponseCode == 200) {
       Serial.println("Data sent successfully!");
       lcd.setCursor(15, 0);
       lcd.print("✓");
