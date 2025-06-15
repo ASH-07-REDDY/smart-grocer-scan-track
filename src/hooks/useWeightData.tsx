@@ -41,26 +41,47 @@ export function useWeightData() {
     setError(null);
 
     try {
-      // Get product data with current weight
+      // Get product data with current weight - ensure barcode match is exact
       const { data: productData, error: productError } = await supabase
         .from('barcode_products')
         .select('*')
-        .eq('barcode', barcode)
+        .eq('barcode', barcode.trim())
         .maybeSingle();
 
       if (productError) throw productError;
-      if (!productData) return null;
+      if (!productData) {
+        console.log(`No product found for barcode: ${barcode}`);
+        return null;
+      }
 
-      // Get user's expiry date for this product
+      // Get user's expiry date for this specific barcode
       const { data: expiryData } = await supabase
         .from('user_expiry_dates')
         .select('expiry_date')
         .eq('user_id', user.id)
-        .eq('barcode', barcode)
+        .eq('barcode', barcode.trim())
         .maybeSingle();
+
+      // Get the latest weight reading for this specific barcode and user
+      const { data: latestWeight } = await supabase
+        .from('weight_readings')
+        .select('weight_value, weight_unit, timestamp')
+        .eq('barcode', barcode.trim())
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Use the latest weight reading if available, otherwise fall back to product's current_weight
+      const currentWeight = latestWeight?.weight_value || productData.current_weight || 0;
+      const weightUnit = latestWeight?.weight_unit || productData.weight_unit || 'grams';
+      const lastUpdate = latestWeight?.timestamp || productData.last_weight_update;
 
       return {
         ...productData,
+        current_weight: currentWeight,
+        weight_unit: weightUnit,
+        last_weight_update: lastUpdate,
         user_expiry_date: expiryData?.expiry_date || null
       };
     } catch (err) {
@@ -99,11 +120,13 @@ export function useWeightData() {
         .from('weight_readings')
         .select('*')
         .eq('user_id', user.id)
-        .eq('barcode', barcode)
+        .eq('barcode', barcode.trim())
         .order('timestamp', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
+      
+      console.log(`Found ${data?.length || 0} weight readings for barcode ${barcode}`);
       return data || [];
     } catch (err) {
       console.error('Error fetching weight history:', err);
@@ -115,11 +138,24 @@ export function useWeightData() {
     if (!user) return false;
 
     try {
+      // Validate that the barcode exists in barcode_products
+      const { data: productExists } = await supabase
+        .from('barcode_products')
+        .select('barcode')
+        .eq('barcode', barcode.trim())
+        .maybeSingle();
+
+      if (!productExists) {
+        setError(`Product with barcode ${barcode} not found. Please add the product first.`);
+        return false;
+      }
+
+      // Insert weight reading with exact barcode match
       const { error } = await supabase
         .from('weight_readings')
         .insert({
           user_id: user.id,
-          barcode,
+          barcode: barcode.trim(),
           weight_value: weight,
           weight_unit: 'grams',
           sensor_id: 'ESP32_SIMULATOR',
@@ -129,6 +165,8 @@ export function useWeightData() {
         });
 
       if (error) throw error;
+
+      console.log(`Weight reading saved: ${weight}g for barcode ${barcode}`);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to simulate weight reading');
