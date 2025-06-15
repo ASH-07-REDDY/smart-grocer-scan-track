@@ -11,7 +11,7 @@ export function useProductImages() {
     setGenerating(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('robust-image-generation', {
+      const { data, error } = await supabase.functions.invoke('simple-image-generation', {
         body: {
           productName,
           category
@@ -20,29 +20,22 @@ export function useProductImages() {
 
       if (error) {
         console.error('Error generating product image:', error);
-        // Silently fail without notification
         return null;
       }
 
       if (data?.success && data?.imageUrl) {
-        // Only show success message for successful generations
         toast({
           title: "AI Image Generated",
-          description: `Generated with ${data.provider || 'AI'}`,
+          description: `Generated with ${data.provider}`,
         });
         return data.imageUrl;
       }
 
-      // Graceful failure without notification
-      if (data?.fallback) {
-        console.log('Image generation failed gracefully, proceeding without image');
-        return null;
-      }
-
+      // If no image was generated, continue silently
+      console.log('No image generated, continuing without image');
       return null;
     } catch (error) {
       console.error('Error generating product image:', error);
-      // Silently fail without notification
       return null;
     } finally {
       setGenerating(false);
