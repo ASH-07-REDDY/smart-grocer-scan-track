@@ -9,6 +9,7 @@ import { ProductsView } from "@/components/ProductsView";
 import { AnalyticsView } from "@/components/AnalyticsView";
 import { NotificationsView } from "@/components/NotificationsView";
 import { SettingsView } from "@/components/SettingsView";
+import { WeightMonitor } from "@/components/WeightMonitor";
 import { supabase } from "@/integrations/supabase/client";
 
 function Index() {
@@ -106,6 +107,8 @@ function Index() {
         return <NotificationsView />;
       case "settings":
         return <SettingsView />;
+      case "weight-monitor":
+        return <WeightMonitor />;
       default:
         return (
           <div className="space-y-6">

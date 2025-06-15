@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Home, Package, BarChart3, Settings, User, Bell, Menu, X, LogOut } from "lucide-react";
+import { Home, Package, BarChart3, Settings, User, Bell, Menu, X, LogOut, Scale } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +21,11 @@ const menuItems = [
     title: "Analytics",
     url: "analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Weight Monitor",
+    url: "weight-monitor",
+    icon: Scale,
   },
   {
     title: "Notifications",
