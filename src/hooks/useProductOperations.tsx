@@ -77,6 +77,32 @@ export function useProductOperations() {
         description: "Product added successfully with AI-generated image",
       });
       
+      // Send product addition notifications (email + in-app)
+      try {
+        const categoryName = newProduct.category_name || 'Uncategorized';
+        
+        const { error: notificationError } = await supabase.functions.invoke('send-product-notification', {
+          body: {
+            productName: productData.name,
+            category: categoryName,
+            quantity: productData.quantity,
+            quantityType: productData.quantity_type,
+            expiryDate: productData.expiry_date,
+            userId: user.id,
+            productId: data.id
+          }
+        });
+
+        if (notificationError) {
+          console.error('Error sending product notifications:', notificationError);
+        } else {
+          console.log('Product addition notifications sent successfully');
+        }
+      } catch (notificationError) {
+        console.error('Failed to send product notifications:', notificationError);
+        // Don't fail the product addition if notification fails
+      }
+      
       // Check if the newly added product is expiring soon and needs notification
       if (data?.id) {
         await checkNewProductExpiry(data.id);
