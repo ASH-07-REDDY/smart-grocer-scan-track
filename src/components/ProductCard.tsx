@@ -62,7 +62,7 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
   };
 
   const handleGenerateImage = async () => {
-    console.log(`Downloading appropriate image for product: ${product.name}, category: ${product.category}`);
+    console.log(`Generating AI image for product: ${product.name}, category: ${product.category}`);
     const imageUrl = await downloadAndAssignImage(product.id.toString(), product.name, product.category);
     if (imageUrl) {
       setCurrentImage(imageUrl);
@@ -100,7 +100,7 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
               onClick={handleGenerateImage}
               disabled={downloading}
               className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-2"
-              title="Download Appropriate Image"
+              title="Generate AI Product Image"
             >
               <Sparkles className={`w-4 h-4 ${downloading ? 'animate-spin text-blue-500' : 'text-purple-500'}`} />
             </Button>

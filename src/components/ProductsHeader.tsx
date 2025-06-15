@@ -71,10 +71,10 @@ export function ProductsHeader({
           variant="outline" 
           size="lg"
           disabled={downloading || products.length === 0}
-          title="Download appropriate images for all products"
+          title="Generate AI images for all products"
         >
           <Images className={`w-4 h-4 mr-2 ${downloading ? 'animate-spin' : ''}`} />
-          {downloading ? 'Downloading...' : 'Assign Images'}
+          {downloading ? 'Generating...' : 'Generate Images'}
         </Button>
         <Button onClick={() => setShowScanner(true)} variant="outline" size="lg">
           <ScanLine className="w-4 h-4 mr-2" />

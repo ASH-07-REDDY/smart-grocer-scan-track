@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useProductImages } from '@/hooks/useProductImages';
 
 export function useAutoImageAssignment() {
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
+  const { generateProductImage } = useProductImages();
 
   const downloadAndAssignImage = async (
     productId: string, 
@@ -14,8 +16,32 @@ export function useAutoImageAssignment() {
     setDownloading(true);
     
     try {
-      console.log(`Auto-assigning image for: ${productName} (${category})`);
+      console.log(`Generating AI image for: ${productName} (${category})`);
       
+      // First try AI image generation
+      const aiImageUrl = await generateProductImage(productName, category);
+      
+      if (aiImageUrl) {
+        // Update the product in the database with the new AI-generated image
+        const { error: updateError } = await supabase
+          .from('grocery_items')
+          .update({ image_url: aiImageUrl })
+          .eq('id', productId);
+
+        if (updateError) {
+          console.error('Error updating product with AI image:', updateError);
+        } else {
+          console.log(`AI image assigned to product ${productId}: ${aiImageUrl}`);
+          toast({
+            title: "AI Image Generated",
+            description: `Professional AI image created for ${productName}`,
+          });
+          return aiImageUrl;
+        }
+      }
+
+      // Fallback to download service if AI generation fails
+      console.log('AI generation failed, falling back to download service');
       const { data, error } = await supabase.functions.invoke('download-product-image', {
         body: {
           productName,
@@ -27,28 +53,28 @@ export function useAutoImageAssignment() {
       if (error) {
         console.error('Error downloading product image:', error);
         toast({
-          title: "Image Download Failed",
-          description: "Could not download appropriate image for product",
+          title: "Image Assignment Failed",
+          description: "Could not generate or download image for product",
           variant: "destructive",
         });
         return null;
       }
 
       if (data?.success && data?.imageUrl) {
-        console.log(`Image downloaded and assigned: ${data.imageUrl}`);
+        console.log(`Fallback image downloaded and assigned: ${data.imageUrl}`);
         toast({
           title: "Image Downloaded",
-          description: `Appropriate image found and assigned for ${productName}`,
+          description: `Fallback image assigned for ${productName}`,
         });
         return data.imageUrl;
       }
 
       return null;
     } catch (error) {
-      console.error('Error in auto image assignment:', error);
+      console.error('Error in image assignment:', error);
       toast({
         title: "Error",
-        description: "Failed to assign appropriate image",
+        description: "Failed to assign image",
         variant: "destructive",
       });
       return null;
