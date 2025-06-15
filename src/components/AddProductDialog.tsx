@@ -244,7 +244,7 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (₹)</Label>
+              <Label htmlFor="amount">Total Price (₹)</Label>
               <Input
                 id="amount"
                 type="number"
@@ -254,6 +254,9 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
                 placeholder="0"
                 required
               />
+              <div className="text-xs text-gray-500">
+                Enter total price for {formData.quantity} {formData.quantity_type}
+              </div>
             </div>
           </div>
 

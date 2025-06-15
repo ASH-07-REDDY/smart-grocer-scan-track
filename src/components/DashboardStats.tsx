@@ -44,7 +44,7 @@ export function DashboardStats({ products }: DashboardStatsProps) {
 
   const totalValue = activeProducts.reduce((sum, product) => {
     const price = parseFloat(product.amount.replace('₹', '').replace(',', '')) || 0;
-    return sum + (price * product.quantity);
+    return sum + price; // Price is already total for the entire quantity
   }, 0);
 
   const stats = [

@@ -217,7 +217,7 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount (₹)</Label>
+                <Label htmlFor="amount">Total Price (₹)</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -227,6 +227,9 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
                   placeholder="0"
                   required
                 />
+                <div className="text-xs text-gray-500">
+                  Total price for {formData.quantity} {formData.quantity_type}
+                </div>
               </div>
             </div>
 
