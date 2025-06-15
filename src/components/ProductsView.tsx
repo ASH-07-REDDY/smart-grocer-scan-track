@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProductOperations } from "@/hooks/useProductOperations";
 import { sanitizeInput } from "@/utils/securityValidation";
 import { LogoGenerator } from "@/components/LogoGenerator";
+import { BarcodeProductDisplay } from "@/components/BarcodeProductDisplay";
 
 interface Product {
   id: string;
@@ -184,6 +185,8 @@ export function ProductsView() {
         products={filteredProducts}
         getCategoryName={getCategoryName}
       />
+
+      <BarcodeProductDisplay />
 
       <SearchAndFilters
         searchTerm={searchTerm}
