@@ -15,33 +15,42 @@ export type Database = {
           brand: string | null
           category: string | null
           created_at: string
+          current_weight: number | null
           default_expiry_days: number | null
           id: string
+          last_weight_update: string | null
           nutrition_info: Json | null
           product_name: string
           updated_at: string
+          weight_unit: string | null
         }
         Insert: {
           barcode: string
           brand?: string | null
           category?: string | null
           created_at?: string
+          current_weight?: number | null
           default_expiry_days?: number | null
           id?: string
+          last_weight_update?: string | null
           nutrition_info?: Json | null
           product_name: string
           updated_at?: string
+          weight_unit?: string | null
         }
         Update: {
           barcode?: string
           brand?: string | null
           category?: string | null
           created_at?: string
+          current_weight?: number | null
           default_expiry_days?: number | null
           id?: string
+          last_weight_update?: string | null
           nutrition_info?: Json | null
           product_name?: string
           updated_at?: string
+          weight_unit?: string | null
         }
         Relationships: []
       }
@@ -225,6 +234,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_expiry_dates: {
+        Row: {
+          barcode: string
+          created_at: string
+          expiry_date: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          expiry_date: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_notification_preferences: {
         Row: {
           created_at: string
@@ -255,6 +291,48 @@ export type Database = {
           phone_number?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      weight_readings: {
+        Row: {
+          barcode: string
+          battery_level: number | null
+          created_at: string
+          id: string
+          sensor_id: string
+          signal_strength: number | null
+          temperature: number | null
+          timestamp: string
+          user_id: string
+          weight_unit: string
+          weight_value: number
+        }
+        Insert: {
+          barcode: string
+          battery_level?: number | null
+          created_at?: string
+          id?: string
+          sensor_id: string
+          signal_strength?: number | null
+          temperature?: number | null
+          timestamp?: string
+          user_id: string
+          weight_unit?: string
+          weight_value: number
+        }
+        Update: {
+          barcode?: string
+          battery_level?: number | null
+          created_at?: string
+          id?: string
+          sensor_id?: string
+          signal_strength?: number | null
+          temperature?: number | null
+          timestamp?: string
+          user_id?: string
+          weight_unit?: string
+          weight_value?: number
         }
         Relationships: []
       }
