@@ -6,6 +6,7 @@ import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Ch
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { generatePlaceholderImage, generateSVGPlaceholder } from "@/utils/placeholderImages";
+import { useAutoImageAssignment } from "@/hooks/useAutoImageAssignment";
 
 interface Product {
   id: number;
@@ -27,6 +28,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: ProductCardProps) {
+  const { downloadAndAssignImage, downloading } = useAutoImageAssignment();
   const [currentImage, setCurrentImage] = useState(() => {
     // Use existing image or generate placeholder
     return product.image && product.image !== "/placeholder.svg" 
@@ -59,13 +61,14 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleGenerateImage = () => {
-    console.log(`Generating new placeholder for product: ${product.name}, category: ${product.category}`);
-    // Generate a new placeholder image
-    const newImageUrl = generatePlaceholderImage(product.name, product.category);
-    setCurrentImage(newImageUrl);
-    setImageError(false);
-    onImageUpdate?.(product.id, newImageUrl);
+  const handleGenerateImage = async () => {
+    console.log(`Downloading appropriate image for product: ${product.name}, category: ${product.category}`);
+    const imageUrl = await downloadAndAssignImage(product.id.toString(), product.name, product.category);
+    if (imageUrl) {
+      setCurrentImage(imageUrl);
+      setImageError(false);
+      onImageUpdate?.(product.id, imageUrl);
+    }
   };
 
   const handleImageError = () => {
@@ -95,10 +98,11 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
               variant="ghost" 
               size="sm" 
               onClick={handleGenerateImage}
+              disabled={downloading}
               className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-2"
-              title="Generate New Image"
+              title="Download Appropriate Image"
             >
-              <Sparkles className="w-4 h-4 text-purple-500" />
+              <Sparkles className={`w-4 h-4 ${downloading ? 'animate-spin text-blue-500' : 'text-purple-500'}`} />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

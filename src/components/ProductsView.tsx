@@ -177,6 +177,8 @@ export function ProductsView() {
         setShowNotificationSettings={setShowNotificationSettings}
         setShowScanner={setShowScanner}
         onAddProduct={handleAddProductClick}
+        products={filteredProducts}
+        getCategoryName={getCategoryName}
       />
 
       <SearchAndFilters
