@@ -258,6 +258,59 @@ export type Database = {
         }
         Relationships: []
       }
+      weights: {
+        Row: {
+          battery_level: number | null
+          created_at: string
+          id: string
+          product_id: string | null
+          sensor_id: string
+          signal_strength: number | null
+          temperature: number | null
+          timestamp: string
+          unit: string
+          updated_at: string
+          user_id: string
+          weight_value: number
+        }
+        Insert: {
+          battery_level?: number | null
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          sensor_id: string
+          signal_strength?: number | null
+          temperature?: number | null
+          timestamp?: string
+          unit?: string
+          updated_at?: string
+          user_id: string
+          weight_value: number
+        }
+        Update: {
+          battery_level?: number | null
+          created_at?: string
+          id?: string
+          product_id?: string | null
+          sensor_id?: string
+          signal_strength?: number | null
+          temperature?: number | null
+          timestamp?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string
+          weight_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weights_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "grocery_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
