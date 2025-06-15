@@ -99,7 +99,35 @@ async function generateWithOpenAI(prompt: string) {
 
   try {
     console.log(`Generating image with prompt: ${prompt}`);
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
+    
+    // Try gpt-image-1 first (newer model)
+    let res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt,
+        size: "1024x1024",
+        quality: "high",
+        output_format: "png"
+      })
+    });
+
+    let data = await res.json();
+    console.log("OpenAI gpt-image-1 response status:", res.status);
+
+    if (res.ok && data.data && data.data[0]?.b64_json) {
+      console.log("OpenAI gpt-image-1 generation successful");
+      const base64Image = data.data[0].b64_json;
+      return { success: true, imageUrl: `data:image/png;base64,${base64Image}` };
+    }
+
+    // Fallback to DALL-E 3 if gpt-image-1 fails
+    console.log("Trying DALL-E 3 fallback...");
+    res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -115,11 +143,11 @@ async function generateWithOpenAI(prompt: string) {
       })
     });
 
-    const data = await res.json();
-    console.log("OpenAI response status:", res.status);
+    data = await res.json();
+    console.log("OpenAI DALL-E 3 response status:", res.status);
 
     if (res.ok && data.data && data.data[0]?.url) {
-      console.log("OpenAI image generation successful");
+      console.log("OpenAI DALL-E 3 generation successful");
       return { success: true, imageUrl: data.data[0].url };
     } else {
       console.error("OpenAI response error:", data);
@@ -134,15 +162,29 @@ async function generateWithOpenAI(prompt: string) {
 // ---------------------- SUPABASE STORAGE UPLOAD ----------------------
 async function uploadToSupabase(imageUrl: string, productId: string): Promise<string> {
   try {
-    console.log(`Downloading image from OpenAI: ${imageUrl}`);
-    const imageResponse = await fetch(imageUrl);
-    
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to download image: ${imageResponse.status}`);
-    }
+    let uint8Array: Uint8Array;
 
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const uint8Array = new Uint8Array(imageBuffer);
+    if (imageUrl.startsWith('data:image/')) {
+      // Handle base64 images from gpt-image-1
+      console.log("Processing base64 image");
+      const base64Data = imageUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      uint8Array = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+      }
+    } else {
+      // Handle URL images from DALL-E 3
+      console.log(`Downloading image from URL: ${imageUrl}`);
+      const imageResponse = await fetch(imageUrl);
+      
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download image: ${imageResponse.status}`);
+      }
+
+      const imageBuffer = await imageResponse.arrayBuffer();
+      uint8Array = new Uint8Array(imageBuffer);
+    }
 
     const bucket = "product-images";
     const fileName = `${productId}.png`;
