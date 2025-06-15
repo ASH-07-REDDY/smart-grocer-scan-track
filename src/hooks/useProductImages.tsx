@@ -13,10 +13,11 @@ export function useProductImages() {
     try {
       console.log(`Generating AI image for: ${productName} (${category})`);
       
-      const { data, error } = await supabase.functions.invoke('simple-image-generation', {
+      const { data, error } = await supabase.functions.invoke('enhanced-product-image-generation', {
         body: {
           productName,
-          category
+          category,
+          productId: `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         }
       });
 
