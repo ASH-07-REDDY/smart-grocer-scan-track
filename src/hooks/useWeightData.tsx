@@ -15,128 +15,133 @@ interface WeightReading {
   user_id: string;
 }
 
-interface WeightData {
+interface BarcodeProductWithWeight {
+  id: string;
+  barcode: string;
+  product_name: string;
+  brand: string | null;
+  category: string | null;
+  default_expiry_days: number | null;
+  nutrition_info: any;
   current_weight: number;
   weight_unit: string;
   last_weight_update: string;
-  recent_readings: WeightReading[];
+  user_expiry_date?: string;
 }
 
-export function useWeightData(barcode: string) {
-  const [weightData, setWeightData] = useState<WeightData | null>(null);
+export function useWeightData() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const fetchWeightData = async (productBarcode: string) => {
-    if (!user || !productBarcode) return;
-
+  const getProductWithWeight = async (barcode: string): Promise<BarcodeProductWithWeight | null> => {
+    if (!user) return null;
+    
     setIsLoading(true);
     setError(null);
 
     try {
-      // Get current weight from barcode_products
+      // Get product data with current weight
       const { data: productData, error: productError } = await supabase
         .from('barcode_products')
-        .select('current_weight, weight_unit, last_weight_update')
-        .eq('barcode', productBarcode)
-        .single();
+        .select('*')
+        .eq('barcode', barcode)
+        .maybeSingle();
 
       if (productError) throw productError;
+      if (!productData) return null;
 
-      // Get recent weight readings
-      const { data: readings, error: readingsError } = await supabase
-        .from('weight_readings')
-        .select('*')
-        .eq('barcode', productBarcode)
+      // Get user's expiry date for this product
+      const { data: expiryData } = await supabase
+        .from('user_expiry_dates')
+        .select('expiry_date')
         .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(10);
+        .eq('barcode', barcode)
+        .maybeSingle();
 
-      if (readingsError) throw readingsError;
-
-      setWeightData({
-        current_weight: productData?.current_weight || 0,
-        weight_unit: productData?.weight_unit || 'grams',
-        last_weight_update: productData?.last_weight_update || '',
-        recent_readings: readings || []
-      });
+      return {
+        ...productData,
+        user_expiry_date: expiryData?.expiry_date || null
+      };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch weight data');
+      setError(err instanceof Error ? err.message : 'Failed to get product data');
+      return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const addWeightReading = async (
-    productBarcode: string,
-    weight: number,
-    sensorId: string,
-    additionalData?: {
-      temperature?: number;
-      battery_level?: number;
-      signal_strength?: number;
+  const saveExpiryDate = async (barcode: string, expiryDate: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('user_expiry_dates')
+        .upsert({
+          user_id: user.id,
+          barcode,
+          expiry_date: expiryDate
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save expiry date');
+      return false;
     }
-  ) => {
-    if (!user) return;
+  };
+
+  const getWeightHistory = async (barcode: string, limit: number = 10): Promise<WeightReading[]> => {
+    if (!user) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('weight_readings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('barcode', barcode)
+        .order('timestamp', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching weight history:', err);
+      return [];
+    }
+  };
+
+  const simulateWeightReading = async (barcode: string, weight: number): Promise<boolean> => {
+    if (!user) return false;
 
     try {
       const { error } = await supabase
         .from('weight_readings')
         .insert({
-          barcode: productBarcode,
+          user_id: user.id,
+          barcode,
           weight_value: weight,
           weight_unit: 'grams',
-          sensor_id: sensorId,
-          user_id: user.id,
-          ...additionalData
+          sensor_id: 'ESP32_SIMULATOR',
+          temperature: 22.5,
+          battery_level: 85,
+          signal_strength: -45
         });
 
       if (error) throw error;
-
-      // Refresh weight data after adding reading
-      await fetchWeightData(productBarcode);
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add weight reading');
+      setError(err instanceof Error ? err.message : 'Failed to simulate weight reading');
+      return false;
     }
   };
 
-  useEffect(() => {
-    if (barcode) {
-      fetchWeightData(barcode);
-    }
-  }, [barcode, user]);
-
-  // Set up real-time subscription for weight updates
-  useEffect(() => {
-    if (!user || !barcode) return;
-
-    const channel = supabase
-      .channel(`weight_readings_${barcode}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'weight_readings',
-          filter: `barcode=eq.${barcode}`
-        },
-        () => {
-          fetchWeightData(barcode);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [barcode, user]);
-
   return {
-    weightData,
+    getProductWithWeight,
+    saveExpiryDate,
+    getWeightHistory,
+    simulateWeightReading,
     isLoading,
-    error,
-    fetchWeightData,
-    addWeightReading
+    error
   };
 }

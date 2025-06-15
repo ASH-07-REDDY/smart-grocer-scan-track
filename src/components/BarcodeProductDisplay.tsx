@@ -5,33 +5,65 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useBarcodeData } from "@/hooks/useBarcodeData";
 import { useWeightData } from "@/hooks/useWeightData";
-import { useExpiryDates } from "@/hooks/useExpiryDates";
-import { Loader2, Package, Search, Weight, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Loader2, Package, Search, Scale, Calendar as CalendarIcon, History } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export function BarcodeProductDisplay() {
   const [barcode, setBarcode] = useState("");
   const [productData, setProductData] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const { lookupBarcode, isLoading, error } = useBarcodeData();
-  const { weightData, isLoading: weightLoading, addWeightReading } = useWeightData(barcode);
-  const { getExpiryDate, setExpiryDate } = useExpiryDates();
+  const [expiryDate, setExpiryDate] = useState<Date>();
+  const [weightHistory, setWeightHistory] = useState<any[]>([]);
+  const [simulatedWeight, setSimulatedWeight] = useState("");
+  const { 
+    getProductWithWeight, 
+    saveExpiryDate, 
+    getWeightHistory, 
+    simulateWeightReading, 
+    isLoading, 
+    error 
+  } = useWeightData();
 
   const handleSearch = async () => {
     if (!barcode.trim()) return;
     
-    const data = await lookupBarcode(barcode.trim());
+    const data = await getProductWithWeight(barcode.trim());
     setProductData(data);
     
-    // Load existing expiry date if available
     if (data) {
-      const existingDate = await getExpiryDate(barcode.trim());
-      if (existingDate) {
-        setSelectedDate(new Date(existingDate));
+      const history = await getWeightHistory(barcode.trim());
+      setWeightHistory(history);
+      
+      if (data.user_expiry_date) {
+        setExpiryDate(new Date(data.user_expiry_date));
       }
+    }
+  };
+
+  const handleSaveExpiryDate = async () => {
+    if (!barcode.trim() || !expiryDate) return;
+    
+    const success = await saveExpiryDate(barcode.trim(), format(expiryDate, 'yyyy-MM-dd'));
+    if (success && productData) {
+      setProductData({
+        ...productData,
+        user_expiry_date: format(expiryDate, 'yyyy-MM-dd')
+      });
+    }
+  };
+
+  const handleSimulateWeight = async () => {
+    if (!barcode.trim() || !simulatedWeight) return;
+    
+    const weight = parseFloat(simulatedWeight);
+    if (isNaN(weight)) return;
+    
+    const success = await simulateWeightReading(barcode.trim(), weight);
+    if (success) {
+      setSimulatedWeight("");
+      // Refresh data to show updated weight
+      handleSearch();
     }
   };
 
@@ -41,22 +73,25 @@ export function BarcodeProductDisplay() {
     }
   };
 
-  const handleExpiryDateSave = async () => {
-    if (selectedDate && barcode && productData) {
-      await setExpiryDate(barcode, format(selectedDate, 'yyyy-MM-dd'));
+  const formatWeight = (weight: number, unit: string) => {
+    if (weight >= 1000 && unit === 'grams') {
+      return `${(weight / 1000).toFixed(2)} kg`;
     }
+    return `${weight} ${unit}`;
   };
 
-  const handleSimulateWeight = async () => {
-    if (barcode && productData) {
-      // Simulate ESP32 weight reading
-      const simulatedWeight = Math.floor(Math.random() * 1000) + 100; // Random weight between 100-1100g
-      await addWeightReading(barcode, simulatedWeight, 'ESP32_SENSOR_01', {
-        temperature: Math.floor(Math.random() * 10) + 20, // 20-30°C
-        battery_level: Math.floor(Math.random() * 40) + 60, // 60-100%
-        signal_strength: Math.floor(Math.random() * 20) + 80 // 80-100%
-      });
-    }
+  const isExpiringSoon = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 3;
+  };
+
+  const isExpired = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    return expiry < today;
   };
 
   return (
@@ -65,7 +100,7 @@ export function BarcodeProductDisplay() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="w-5 h-5" />
-            Barcode Product Lookup
+            Smart Barcode Product Lookup
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -89,6 +124,26 @@ export function BarcodeProductDisplay() {
           <div className="text-sm text-muted-foreground">
             Try these barcodes: 123456789012 (Apple), 234567890123 (Bananas), 345678901234 (Biscuits)
           </div>
+
+          {/* Weight Simulator */}
+          {productData && (
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-medium mb-2 text-blue-800">ESP32 Weight Simulator</h4>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Weight in grams"
+                  value={simulatedWeight}
+                  onChange={(e) => setSimulatedWeight(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleSimulateWeight} size="sm">
+                  <Scale className="w-4 h-4 mr-2" />
+                  Update Weight
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -105,138 +160,135 @@ export function BarcodeProductDisplay() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
               <Package className="w-5 h-5" />
-              Product Found
+              Product Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-semibold text-lg">{productData.product_name}</h3>
-                <p className="text-sm text-muted-foreground">Barcode: {productData.barcode}</p>
-              </div>
-              <div className="space-y-2">
-                {productData.brand && (
-                  <div>
-                    <span className="font-medium">Brand: </span>
-                    <span>{productData.brand}</span>
-                  </div>
-                )}
-                {productData.category && (
-                  <Badge variant="secondary">{productData.category}</Badge>
-                )}
-              </div>
-            </div>
-            
-            {productData.default_expiry_days && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <span className="font-medium">Default Expiry: </span>
-                <span>{productData.default_expiry_days} days</span>
-              </div>
-            )}
-
-            {/* Weight Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Weight className="w-4 h-4 text-purple-600" />
-                  <span className="font-medium text-purple-800">Current Weight</span>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Product Info */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg">{productData.product_name}</h3>
+                  <p className="text-sm text-muted-foreground">Barcode: {productData.barcode}</p>
                 </div>
-                {weightLoading ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">Loading weight data...</span>
-                  </div>
-                ) : weightData ? (
-                  <div className="space-y-1">
-                    <div className="text-lg font-semibold text-purple-800">
-                      {weightData.current_weight} {weightData.weight_unit}
+                
+                <div className="space-y-2">
+                  {productData.brand && (
+                    <div>
+                      <span className="font-medium">Brand: </span>
+                      <span>{productData.brand}</span>
                     </div>
-                    {weightData.last_weight_update && (
-                      <div className="text-xs text-purple-600">
-                        Last updated: {format(new Date(weightData.last_weight_update), 'PPp')}
+                  )}
+                  {productData.category && (
+                    <Badge variant="secondary">{productData.category}</Badge>
+                  )}
+                </div>
+
+                {productData.default_expiry_days && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <span className="font-medium">Default Expiry: </span>
+                    <span>{productData.default_expiry_days} days</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Weight & Expiry Info */}
+              <div className="space-y-4">
+                {/* Current Weight */}
+                <div className="p-4 bg-white rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Scale className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-medium">Current Weight</h4>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatWeight(productData.current_weight || 0, productData.weight_unit || 'grams')}
+                  </div>
+                  {productData.last_weight_update && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Last updated: {new Date(productData.last_weight_update).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Expiry Date Setting */}
+                <div className="p-4 bg-white rounded-lg border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CalendarIcon className="w-5 h-5 text-orange-600" />
+                    <h4 className="font-medium">Expiry Date</h4>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !expiryDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {expiryDate ? format(expiryDate, "PPP") : <span>Pick expiry date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={expiryDate}
+                          onSelect={setExpiryDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <Button 
+                      onClick={handleSaveExpiryDate} 
+                      disabled={!expiryDate}
+                      className="w-full"
+                      size="sm"
+                    >
+                      Save Expiry Date
+                    </Button>
+
+                    {productData.user_expiry_date && (
+                      <div className="mt-2">
+                        <Badge 
+                          variant={
+                            isExpired(productData.user_expiry_date) ? "destructive" : 
+                            isExpiringSoon(productData.user_expiry_date) ? "secondary" : "outline"
+                          }
+                        >
+                          {isExpired(productData.user_expiry_date) ? "Expired" : 
+                           isExpiringSoon(productData.user_expiry_date) ? "Expires Soon" : "Fresh"}
+                        </Badge>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Expires: {new Date(productData.user_expiry_date).toLocaleDateString()}
+                        </p>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="text-sm text-gray-500">No weight data available</div>
-                )}
-                <Button 
-                  onClick={handleSimulateWeight} 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-2 text-purple-600 border-purple-200 hover:bg-purple-50"
-                >
-                  Simulate ESP32 Reading
-                </Button>
-              </div>
-
-              <div className="p-3 bg-orange-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <CalendarIcon className="w-4 h-4 text-orange-600" />
-                  <span className="font-medium text-orange-800">Expiry Date</span>
                 </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal border-orange-200 hover:bg-orange-50",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Set expiry date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                    <div className="p-3 border-t">
-                      <Button 
-                        onClick={handleExpiryDateSave} 
-                        disabled={!selectedDate}
-                        className="w-full"
-                        size="sm"
-                      >
-                        Save Expiry Date
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
               </div>
             </div>
 
-            {/* Recent Weight Readings */}
-            {weightData?.recent_readings && weightData.recent_readings.length > 0 && (
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-gray-600" />
-                  <span className="font-medium">Recent Weight Readings</span>
+            {/* Weight History */}
+            {weightHistory.length > 0 && (
+              <div className="p-4 bg-white rounded-lg border">
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-medium">Weight History</h4>
                 </div>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {weightData.recent_readings.slice(0, 5).map((reading) => (
-                    <div key={reading.id} className="flex justify-between items-center text-sm">
-                      <span>{reading.weight_value} {reading.weight_unit}</span>
-                      <span className="text-gray-500">
-                        {format(new Date(reading.timestamp), 'MMM dd, HH:mm')}
+                  {weightHistory.map((reading) => (
+                    <div key={reading.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded">
+                      <span>{formatWeight(reading.weight_value, reading.weight_unit)}</span>
+                      <span className="text-muted-foreground">
+                        {new Date(reading.timestamp).toLocaleString()}
                       </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {productData.nutrition_info && (
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <span className="font-medium">Nutrition Info: </span>
-                <pre className="text-sm mt-2 whitespace-pre-wrap">
-                  {JSON.stringify(productData.nutrition_info, null, 2)}
-                </pre>
               </div>
             )}
           </CardContent>
