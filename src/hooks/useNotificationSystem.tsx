@@ -20,7 +20,7 @@ export function useNotificationSystem() {
           .from('user_notification_preferences')
           .select('*')
           .eq('user_id', user.id)
-          .maybeSingle();
+          .single();
 
         if (!preferences?.email_notifications) {
           console.log('Email notifications disabled for user');
