@@ -48,8 +48,8 @@ export function ProductsHeader({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Products in Pantry</h1>
-        <p className="text-gray-600">Manage your grocery inventory</p>
+        <h1 className="text-3xl font-bold text-gray-900">Smart Pantry</h1>
+        <p className="text-gray-600">Intelligent grocery inventory management</p>
       </div>
       <div className="flex gap-2">
         <Dialog open={showNotificationSettings} onOpenChange={setShowNotificationSettings}>

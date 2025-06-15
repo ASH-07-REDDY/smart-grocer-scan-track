@@ -255,6 +255,7 @@ export function useNotificationSystem() {
   };
 
   return {
-    checkNewProductExpiry
+    checkNewProductExpiry,
+    sendNotification
   };
 }

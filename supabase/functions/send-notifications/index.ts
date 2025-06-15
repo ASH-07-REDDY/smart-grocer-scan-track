@@ -146,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       const emailResult = await resend.emails.send({
-        from: "Pantry Manager <onboarding@resend.dev>",
+        from: "Smart Pantry <onboarding@resend.dev>",
         to: [profile.email],
         subject: emailSubject,
         html: emailHtml,
@@ -273,7 +273,7 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🥘 Pantry Manager</h1>
+          <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🏠 Smart Pantry</h1>
           <h2 style="margin: 10px 0 0 0; font-size: 20px; font-weight: normal;">${getNotificationTitle(payload)}</h2>
         </div>
         
@@ -345,7 +345,7 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
         
         <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border: 1px solid #e1e8ed; border-top: none;">
           <p style="color: #6b7280; font-size: 12px; margin: 0; line-height: 1.4;">
-            This is an automated notification from your Pantry Manager.<br>
+            This is an automated notification from your Smart Pantry.<br>
             You can manage your notification preferences in the app settings.
           </p>
         </div>

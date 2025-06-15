@@ -9,7 +9,7 @@ import { useProductImages } from "@/hooks/useProductImages";
 export function useProductOperations() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { checkNewProductExpiry } = useNotificationSystem();
+  const { checkNewProductExpiry, sendNotification } = useNotificationSystem();
   const { generateProductImage } = useProductImages();
 
   const addProduct = async (newProduct: any, setValidationErrors: (errors: string[]) => void) => {
@@ -168,7 +168,10 @@ export function useProductOperations() {
       // First, fetch the product to get its details for notification
       const { data: productToDelete, error: fetchError } = await supabase
         .from('grocery_items')
-        .select('*')
+        .select(`
+          *,
+          categories (name)
+        `)
         .eq('id', productId)
         .eq('user_id', user.id)
         .single();
@@ -244,9 +247,36 @@ export function useProductOperations() {
         return false;
       } else {
         console.log('Product deleted successfully:', productToDelete.name);
+
+        // Send product removal notification
+        try {
+          const notificationResult = await sendNotification({
+            user_id: user.id,
+            product: {
+              id: productToDelete.id,
+              name: productToDelete.name,
+              category: productToDelete.categories?.name || 'Uncategorized',
+              quantity: productToDelete.quantity || 0,
+              quantity_type: productToDelete.quantity_type || 'pieces',
+              amount: productToDelete.amount || 0,
+              expiry_date: productToDelete.expiry_date
+            },
+            notification_type: 'product_removed'
+          });
+
+          if (notificationResult.success) {
+            console.log('Product removal notification sent successfully');
+          } else {
+            console.error('Failed to send removal notification:', notificationResult.error);
+          }
+        } catch (notificationError) {
+          console.error('Error sending removal notification:', notificationError);
+          // Don't fail the deletion if notification fails
+        }
+
         toast({
           title: "Success",
-          description: `Product "${productToDelete.name}" deleted successfully`,
+          description: `${productToDelete.name} has been removed from your pantry`,
         });
         return true;
       }

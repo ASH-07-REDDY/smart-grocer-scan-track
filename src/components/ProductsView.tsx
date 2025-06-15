@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProductOperations } from "@/hooks/useProductOperations";
 import { sanitizeInput } from "@/utils/securityValidation";
+import { LogoGenerator } from "@/components/LogoGenerator";
 
 interface Product {
   id: string;
@@ -48,6 +49,9 @@ export function ProductsView() {
   const [barcodeData, setBarcodeData] = useState<any>(null);
   const { user } = useAuth();
   const { addProduct, updateProduct, deleteProduct } = useProductOperations();
+  
+  // Add a state for showing logo generator  
+  const [showLogoGenerator, setShowLogoGenerator] = useState(false);
 
   // Fetch categories
   useEffect(() => {
@@ -223,6 +227,24 @@ export function ProductsView() {
         onOpenChange={setShowScanner}
         onBarcodeScanned={onBarcodeScanned}
       />
+      
+      {/* Logo Generator - Hidden by default, can be shown via developer tools */}
+      {showLogoGenerator && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Logo Generator</h2>
+              <button 
+                onClick={() => setShowLogoGenerator(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <LogoGenerator />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
