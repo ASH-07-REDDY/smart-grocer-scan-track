@@ -105,12 +105,23 @@ export function EnhancedAnalytics() {
   }, [user]);
 
   const processAnalyticsData = (products: any[]): ProductAnalytics => {
+    // Filter out expired products
+    const activeProducts = products.filter(product => {
+      if (!product.expiry_date) return true;
+      
+      const expiryDate = new Date(product.expiry_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      return expiryDate >= today;
+    });
+
     const categoryMap = new Map();
     const today = new Date();
     let expiringSoon = 0;
 
     // Process by category
-    products.forEach(product => {
+    activeProducts.forEach(product => {
       const categoryName = product.categories?.name || 'Uncategorized';
       
       if (!categoryMap.has(categoryName)) {
@@ -153,6 +164,7 @@ export function EnhancedAnalytics() {
       { timeRange: '2+ Weeks', count: 0, value: 0 }
     ];
 
+    // Include all products for expiry analysis to show expired items in timeline
     products.forEach(product => {
       if (!product.expiry_date) return;
       
@@ -170,8 +182,8 @@ export function EnhancedAnalytics() {
       expiryData[rangeIndex].value += product.amount || 0;
     });
 
-    // Enhanced top products with better data
-    const topProducts = products
+    // Enhanced top products with better data (only active products)
+    const topProducts = activeProducts
       .sort((a, b) => (b.amount || 0) - (a.amount || 0))
       .slice(0, 10)
       .map(product => ({
@@ -185,18 +197,18 @@ export function EnhancedAnalytics() {
 
     // Monthly trend simulation (in real app, you'd have historical data)
     const monthlyData = [
-      { month: 'Jan', items: Math.floor(products.length * 0.7), value: products.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.7 },
-      { month: 'Feb', items: Math.floor(products.length * 0.8), value: products.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.8 },
-      { month: 'Mar', items: Math.floor(products.length * 0.9), value: products.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.9 },
-      { month: 'Apr', items: products.length, value: products.reduce((sum, p) => sum + (p.amount || 0), 0) }
+      { month: 'Jan', items: Math.floor(activeProducts.length * 0.7), value: activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.7 },
+      { month: 'Feb', items: Math.floor(activeProducts.length * 0.8), value: activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.8 },
+      { month: 'Mar', items: Math.floor(activeProducts.length * 0.9), value: activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0) * 0.9 },
+      { month: 'Apr', items: activeProducts.length, value: activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0) }
     ];
 
     const totalStats = {
-      totalItems: products.length,
-      totalValue: products.reduce((sum, p) => sum + (p.amount || 0), 0),
+      totalItems: activeProducts.length,
+      totalValue: activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0),
       expiringSoon,
-      averageValue: products.length > 0 ? 
-        products.reduce((sum, p) => sum + (p.amount || 0), 0) / products.length : 0,
+      averageValue: activeProducts.length > 0 ? 
+        activeProducts.reduce((sum, p) => sum + (p.amount || 0), 0) / activeProducts.length : 0,
       totalCategories: categoryData.length,
       monthlyTrend: 15.2 // Simulated trend percentage
     };

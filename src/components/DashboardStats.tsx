@@ -19,11 +19,22 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStats({ products }: DashboardStatsProps) {
-  const totalProducts = products.length;
+  // Filter out expired products
+  const activeProducts = products.filter(product => {
+    if (!product.expiryDate) return true;
+    
+    const expiryDate = new Date(product.expiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return expiryDate >= today;
+  });
+
+  const totalProducts = activeProducts.length;
   
-  const totalQuantity = products.reduce((sum, product) => sum + product.quantity, 0);
+  const totalQuantity = activeProducts.reduce((sum, product) => sum + product.quantity, 0);
   
-  const expiringProducts = products.filter(product => {
+  const expiringProducts = activeProducts.filter(product => {
     const expiryDate = new Date(product.expiryDate);
     const today = new Date();
     const diffTime = expiryDate.getTime() - today.getTime();
@@ -31,7 +42,7 @@ export function DashboardStats({ products }: DashboardStatsProps) {
     return diffDays <= 3 && diffDays >= 0;
   }).length;
 
-  const totalValue = products.reduce((sum, product) => {
+  const totalValue = activeProducts.reduce((sum, product) => {
     const price = parseFloat(product.amount.replace('₹', '').replace(',', '')) || 0;
     return sum + (price * product.quantity);
   }, 0);
