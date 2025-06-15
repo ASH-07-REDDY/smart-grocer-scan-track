@@ -63,21 +63,18 @@ export function useNotificationSystem() {
           const diffTime = expiryDate.getTime() - today.getTime();
           const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Check if we already sent a notification for this product today
-          const startOfDay = new Date(today);
-          startOfDay.setHours(0, 0, 0, 0);
-          
+          // Check if we already sent ANY expiry notification for this product (not just today)
+          // We only want ONE notification per product when it starts expiring
           const { data: existingNotification } = await supabase
             .from('notifications')
             .select('id')
             .eq('user_id', user.id)
             .eq('product_id', product.id)
             .eq('type', 'expiry')
-            .gte('created_at', startOfDay.toISOString())
             .maybeSingle();
 
           if (existingNotification) {
-            console.log(`Notification already sent today for product ${product.name}`);
+            console.log(`Expiry notification already exists for product ${product.name}`);
             continue;
           }
 
@@ -139,14 +136,26 @@ export function useNotificationSystem() {
     }
   };
 
-  const sendProductNotification = async (
-    productId: string, 
-    notificationType: 'product_added' | 'product_removed'
-  ) => {
+  // Only check for expiry notifications when products are added
+  const checkNewProductExpiry = async (productId: string) => {
     if (!user) return;
 
     try {
-      // Fetch product details
+      // Get user's notification preferences
+      const { data: preferences } = await supabase
+        .from('user_notification_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!preferences?.email_notifications) {
+        console.log('Email notifications disabled for user');
+        return;
+      }
+
+      const reminderDays = preferences?.expiry_reminder_days || 3;
+      
+      // Fetch the product details
       const { data: product, error } = await supabase
         .from('grocery_items')
         .select(`
@@ -157,40 +166,54 @@ export function useNotificationSystem() {
         .eq('user_id', user.id)
         .single();
 
-      if (error || !product) {
-        console.error('Error fetching product for notification:', error);
-        return;
+      if (error || !product || !product.expiry_date) {
+        return; // No expiry date, no notification needed
       }
 
-      const result = await sendNotification({
-        user_id: user.id,
-        product: {
-          id: product.id,
-          name: product.name,
-          category: product.categories?.name || 'Uncategorized',
-          quantity: product.quantity || 0,
-          quantity_type: product.quantity_type || 'pieces',
-          amount: product.amount || 0,
-          expiry_date: product.expiry_date
-        },
-        notification_type: notificationType
-      });
+      // Check if product is expiring within reminder period
+      const today = new Date();
+      const expiryDate = new Date(product.expiry_date);
+      const diffTime = expiryDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      if (result.success) {
-        toast({
-          title: "Notification Sent",
-          description: `Email alert sent for product ${notificationType.replace('_', ' ')}`,
-        });
-      } else {
-        console.error('Failed to send product notification:', result.error);
+      if (daysUntilExpiry <= reminderDays && daysUntilExpiry >= 0) {
+        // Check if we already have a notification for this product
+        const { data: existingNotification } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('product_id', product.id)
+          .eq('type', 'expiry')
+          .maybeSingle();
+
+        if (!existingNotification) {
+          // Send expiry notification
+          const result = await sendNotification({
+            user_id: user.id,
+            product: {
+              id: product.id,
+              name: product.name,
+              category: product.categories?.name || 'Uncategorized',
+              quantity: product.quantity || 0,
+              quantity_type: product.quantity_type || 'pieces',
+              amount: product.amount || 0,
+              expiry_date: product.expiry_date
+            },
+            notification_type: 'expiry',
+            days_until_expiry: daysUntilExpiry
+          });
+
+          if (result.success) {
+            console.log(`Expiry notification sent for newly added product ${product.name}`);
+          }
+        }
       }
-
     } catch (error) {
-      console.error('Error sending product notification:', error);
+      console.error('Error checking new product expiry:', error);
     }
   };
 
   return {
-    sendProductNotification
+    checkNewProductExpiry
   };
 }

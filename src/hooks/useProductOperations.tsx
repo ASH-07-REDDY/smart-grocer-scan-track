@@ -9,7 +9,7 @@ import { useProductImages } from "@/hooks/useProductImages";
 export function useProductOperations() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { sendProductNotification } = useNotificationSystem();
+  const { checkNewProductExpiry } = useNotificationSystem();
   const { generateProductImage } = useProductImages();
 
   const addProduct = async (newProduct: any, setValidationErrors: (errors: string[]) => void) => {
@@ -77,9 +77,9 @@ export function useProductOperations() {
         description: "Product added successfully with AI-generated image",
       });
       
-      // Send notification for the added product
+      // Check if the newly added product is expiring soon and needs notification
       if (data?.id) {
-        await sendProductNotification(data.id, 'product_added');
+        await checkNewProductExpiry(data.id);
       }
     }
   };
@@ -248,9 +248,6 @@ export function useProductOperations() {
           title: "Success",
           description: `Product "${productToDelete.name}" deleted successfully`,
         });
-
-        // Send notification for the removed product
-        await sendProductNotification(productId, 'product_removed');
         return true;
       }
     } catch (error) {
