@@ -87,14 +87,15 @@ const handler = async (req: Request): Promise<Response> => {
 async function generateWithOpenAI(prompt: string) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
-    console.log("OpenAI API key not available");
-    return { success: false };
+    console.error("OpenAI API key not available - check OPENAI_API_KEY secret");
+    return { success: false, error: "API key not configured" };
   }
 
   try {
     console.log("Attempting OpenAI generation with prompt:", prompt);
+    console.log("API key available:", apiKey ? "Yes" : "No");
     
-    // Use gpt-image-1 model for better results
+    // Use dall-e-3 model which is more reliable
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -102,20 +103,28 @@ async function generateWithOpenAI(prompt: string) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-image-1",
+        model: "dall-e-3",
         prompt: prompt,
         n: 1,
         size: "1024x1024",
-        quality: "high",
-        output_format: "png"
+        quality: "standard",
+        response_format: "url"
       }),
     });
 
+    console.log("OpenAI API response status:", response.status);
+
     if (response.ok) {
       const data = await response.json();
-      console.log("OpenAI response received:", JSON.stringify(data, null, 2));
+      console.log("OpenAI response structure:", Object.keys(data));
       
-      // gpt-image-1 returns base64 data directly
+      // Standard DALL-E response with URLs
+      if (data.data && data.data[0] && data.data[0].url) {
+        console.log("OpenAI generation successful - URL received");
+        return { success: true, imageUrl: data.data[0].url };
+      }
+      
+      // Fallback for base64 response (if any)
       if (data.data && data.data[0] && data.data[0].b64_json) {
         const base64Image = data.data[0].b64_json;
         const imageUrl = `data:image/png;base64,${base64Image}`;
@@ -123,22 +132,25 @@ async function generateWithOpenAI(prompt: string) {
         return { success: true, imageUrl };
       }
       
-      // Fallback for URL response
-      if (data.data && data.data[0] && data.data[0].url) {
-        console.log("OpenAI generation successful - URL received");
-        return { success: true, imageUrl: data.data[0].url };
-      }
-      
-      console.error("Unexpected OpenAI response format:", data);
+      console.error("Unexpected OpenAI response format:", JSON.stringify(data, null, 2));
+      return { success: false, error: "Unexpected response format" };
     } else {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
+      console.error("OpenAI API error - Status:", response.status, "Response:", errorText);
+      
+      // Parse error details if possible
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error("OpenAI error details:", errorData);
+        return { success: false, error: errorData.error?.message || errorText };
+      } catch {
+        return { success: false, error: errorText };
+      }
     }
 
-    return { success: false };
   } catch (error) {
-    console.error("OpenAI generation error:", error);
-    return { success: false };
+    console.error("OpenAI generation network error:", error.message);
+    return { success: false, error: error.message };
   }
 }
 
