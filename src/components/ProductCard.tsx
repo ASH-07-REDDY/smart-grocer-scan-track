@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useProductImages } from "@/hooks/useProductImages";
 import { useState } from "react";
+import { generatePlaceholderImage, generateSVGPlaceholder } from "@/utils/placeholderImages";
 
 interface Product {
   id: number;
@@ -27,8 +27,12 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: ProductCardProps) {
-  const { generateProductImage, generating } = useProductImages();
-  const [currentImage, setCurrentImage] = useState(product.image);
+  const [currentImage, setCurrentImage] = useState(() => {
+    // Use existing image or generate placeholder
+    return product.image && product.image !== "/placeholder.svg" 
+      ? product.image 
+      : generatePlaceholderImage(product.name, product.category);
+  });
   const [imageError, setImageError] = useState(false);
 
   const isExpiringSoon = () => {
@@ -55,23 +59,20 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleGenerateImage = async () => {
-    console.log(`Generating image for product: ${product.name}, category: ${product.category}`);
-    const imageUrl = await generateProductImage(product.name, product.category);
-    if (imageUrl) {
-      console.log(`Generated image URL: ${imageUrl}`);
-      setCurrentImage(imageUrl);
-      setImageError(false);
-      onImageUpdate?.(product.id, imageUrl);
-    } else {
-      console.error("Failed to generate image");
-      setImageError(true);
-    }
+  const handleGenerateImage = () => {
+    console.log(`Generating new placeholder for product: ${product.name}, category: ${product.category}`);
+    // Generate a new placeholder image
+    const newImageUrl = generatePlaceholderImage(product.name, product.category);
+    setCurrentImage(newImageUrl);
+    setImageError(false);
+    onImageUpdate?.(product.id, newImageUrl);
   };
 
   const handleImageError = () => {
     if (!imageError) {
-      setCurrentImage("/placeholder.svg");
+      // Use SVG fallback if image fails to load
+      const svgFallback = generateSVGPlaceholder(product.name, product.category);
+      setCurrentImage(svgFallback);
       setImageError(true);
     }
   };
@@ -94,11 +95,10 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
               variant="ghost" 
               size="sm" 
               onClick={handleGenerateImage}
-              disabled={generating}
               className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-2"
-              title="Generate AI Image"
+              title="Generate New Image"
             >
-              <Sparkles className={`w-4 h-4 ${generating ? 'animate-spin text-blue-500' : 'text-purple-500'}`} />
+              <Sparkles className="w-4 h-4 text-purple-500" />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
