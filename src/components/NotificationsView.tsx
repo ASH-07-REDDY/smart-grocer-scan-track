@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Calendar, Package, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Bell, Calendar, Package, Trash2, CheckCircle, AlertTriangle, TrashIcon } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +19,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'expiry' | 'product_added' | 'product_removed';
+  type: 'expiry' | 'expired' | 'product_added' | 'product_removed';
   is_read: boolean;
   created_at: string;
 }
@@ -73,12 +80,12 @@ export function NotificationsView() {
     } else {
       const typedNotifications = (notificationsData || []).map(notification => ({
         ...notification,
-        type: notification.type as 'expiry' | 'product_added' | 'product_removed'
+        type: notification.type as 'expiry' | 'expired' | 'product_added' | 'product_removed'
       }));
       setNotifications(typedNotifications);
     }
 
-    // Fetch products expiring soon
+    // Fetch products expiring soon (not expired)
     const today = new Date();
     const threeDaysFromNow = new Date(today);
     threeDaysFromNow.setDate(today.getDate() + 3);
@@ -87,6 +94,7 @@ export function NotificationsView() {
       .from('grocery_items')
       .select('id, name, expiry_date')
       .eq('user_id', user.id)
+      .gte('expiry_date', today.toISOString().split('T')[0])  // Only future dates
       .lte('expiry_date', threeDaysFromNow.toISOString().split('T')[0]);
 
     if (productsError) {
@@ -170,10 +178,57 @@ export function NotificationsView() {
     }
   };
 
+  const deleteAllNotifications = async () => {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user?.id);
+
+    if (error) {
+      console.error('Error deleting all notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete all notifications",
+        variant: "destructive",
+      });
+    } else {
+      setNotifications([]);
+      toast({
+        title: "Success",
+        description: "All notifications deleted",
+      });
+    }
+  };
+
+  const deleteReadNotifications = async () => {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user?.id)
+      .eq('is_read', true);
+
+    if (error) {
+      console.error('Error deleting read notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete read notifications",
+        variant: "destructive",
+      });
+    } else {
+      setNotifications(prev => prev.filter(n => !n.is_read));
+      toast({
+        title: "Success",
+        description: "Read notifications deleted",
+      });
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'expiry':
         return <AlertTriangle className="w-5 h-5 text-orange-500" />;
+      case 'expired':
+        return <AlertTriangle className="w-5 h-5 text-red-500" />;
       case 'product_added':
         return <Package className="w-5 h-5 text-green-500" />;
       case 'product_removed':
@@ -186,6 +241,8 @@ export function NotificationsView() {
   const getNotificationBadgeVariant = (type: string) => {
     switch (type) {
       case 'expiry':
+        return 'destructive';
+      case 'expired':
         return 'destructive';
       case 'product_added':
         return 'default';
@@ -215,12 +272,36 @@ export function NotificationsView() {
             Stay updated with expiry alerts and inventory changes
           </p>
         </div>
-        {unreadCount > 0 && (
-          <Button onClick={markAllAsRead} variant="outline">
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Mark All Read ({unreadCount})
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {unreadCount > 0 && (
+            <Button onClick={markAllAsRead} variant="outline">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Mark All Read ({unreadCount})
+            </Button>
+          )}
+          {notifications.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <TrashIcon className="w-4 h-4 mr-2" />
+                  Delete Options
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={deleteReadNotifications}>
+                  Delete Read Notifications
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={deleteAllNotifications}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  Delete All Notifications
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}

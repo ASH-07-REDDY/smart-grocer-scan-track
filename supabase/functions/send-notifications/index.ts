@@ -24,7 +24,7 @@ interface NotificationPayload {
     amount: number;
     expiry_date: string;
   };
-  notification_type: 'expiry' | 'product_added' | 'product_removed';
+  notification_type: 'expiry' | 'expired' | 'product_added' | 'product_removed';
   days_until_expiry?: number;
 }
 
@@ -220,6 +220,8 @@ function getNotificationTitle(payload: NotificationPayload): string {
       } else {
         return `📅 Product Expiring in ${payload.days_until_expiry} Days`;
       }
+    case 'expired':
+      return "❌ Product Has Expired!";
     case 'product_added':
       return "✅ Product Added to Pantry";
     case 'product_removed':
@@ -239,6 +241,9 @@ function getNotificationMessage(payload: NotificationPayload): string {
                      `expires in ${days_until_expiry} days`;
       
       return `${product.name} (${product.quantity} ${product.quantity_type}, ₹${product.amount}) ${urgency}. Category: ${product.category}`;
+    
+    case 'expired':
+      return `${product.name} (${product.quantity} ${product.quantity_type}, ₹${product.amount}) has expired and should be discarded. Expired on: ${new Date(product.expiry_date).toLocaleDateString('en-IN')}`;
     
     case 'product_added':
       return `${product.name} has been added to your pantry - ${product.quantity} ${product.quantity_type}, ₹${product.amount}`;
@@ -321,6 +326,18 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
               ${days_until_expiry === 0 ? 'This product expires today! Please use it immediately.' :
                 days_until_expiry === 1 ? 'This product expires tomorrow! Please plan to use it soon.' :
                 `This product expires in ${days_until_expiry} days. Please plan accordingly.`}
+            </p>
+          </div>
+          ` : ''}
+          
+          ${payload.notification_type === 'expired' ? `
+          <div style="background: linear-gradient(135deg, #3f3f46 0%, #71717a 100%); border: 2px solid #a1a1aa; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+            <p style="margin: 0; font-weight: bold; color: #f4f4f5; font-size: 16px;">
+              This product has expired and should be discarded immediately for food safety.
+            </p>
+            <p style="margin: 10px 0 0 0; color: #e4e4e7; font-size: 14px;">
+              Expired on: ${new Date(product.expiry_date).toLocaleDateString('en-IN')}
             </p>
           </div>
           ` : ''}

@@ -28,13 +28,54 @@ export function useNotificationSystem() {
         }
 
         const reminderDays = preferences?.expiry_reminder_days || 3;
+        const today = new Date();
+        
+        // Check for expired products first
+        const { data: expiredProducts, error: expiredError } = await supabase
+          .from('grocery_items')
+          .select(`
+            *,
+            categories (name)
+          `)
+          .eq('user_id', user.id)
+          .lt('expiry_date', today.toISOString().split('T')[0]);
+
+        if (!expiredError && expiredProducts?.length > 0) {
+          for (const product of expiredProducts) {
+            // Check if we already sent an expired notification for this product
+            const { data: existingExpiredNotification } = await supabase
+              .from('notifications')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('product_id', product.id)
+              .eq('type', 'expired')
+              .maybeSingle();
+
+            if (!existingExpiredNotification) {
+              // Send expired notification
+              await sendNotification({
+                user_id: user.id,
+                product: {
+                  id: product.id,
+                  name: product.name,
+                  category: product.categories?.name || 'Uncategorized',
+                  quantity: product.quantity || 0,
+                  quantity_type: product.quantity_type || 'pieces',
+                  amount: product.amount || 0,
+                  expiry_date: product.expiry_date
+                },
+                notification_type: 'expired'
+              });
+              console.log(`Expired notification sent for ${product.name}`);
+            }
+          }
+        }
         
         // Calculate date range for expiring products
-        const today = new Date();
         const futureDate = new Date(today);
         futureDate.setDate(today.getDate() + reminderDays);
 
-        // Fetch products expiring within the reminder period
+        // Fetch products expiring within the reminder period (not expired)
         const { data: expiringProducts, error } = await supabase
           .from('grocery_items')
           .select(`
