@@ -183,6 +183,21 @@ export function useProductOperations() {
         return false;
       }
 
+      // Delete related notifications first to avoid foreign key constraint violation
+      console.log('Deleting related notifications for product:', productId);
+      const { error: notificationDeleteError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('product_id', productId)
+        .eq('user_id', user.id);
+
+      if (notificationDeleteError) {
+        console.error('Error deleting related notifications:', notificationDeleteError);
+        // Continue with product deletion even if notification deletion fails
+      } else {
+        console.log('Successfully deleted related notifications');
+      }
+
       // Now delete the product
       const { error: deleteError } = await supabase
         .from('grocery_items')
