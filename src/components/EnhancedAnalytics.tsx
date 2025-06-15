@@ -363,11 +363,49 @@ export function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
-                  <RadialBarChart cx="50%" cy="50%" innerRadius="20%" outerRadius="90%" data={topProducts.slice(0, 6)}>
-                    <RadialBar dataKey="quantity" cornerRadius={10} fill="#82ca9d" />
-                    <Tooltip formatter={(value) => [`${value} units`, 'Quantity']} />
-                    <Legend />
-                  </RadialBarChart>
+                  <PieChart>
+                    <Pie
+                      data={topProducts.slice(0, 8)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      paddingAngle={5}
+                      dataKey="quantity"
+                      labelLine={false}
+                      label={({ name, quantity, percent }) => 
+                        `${name}: ${quantity} (${(percent * 100).toFixed(1)}%)`
+                      }
+                    >
+                      {topProducts.slice(0, 8).map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]}
+                          stroke="#fff"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => [`${value} units`, 'Quantity']}
+                      labelFormatter={(label) => `Product: ${label}`}
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #ccc',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      iconType="circle"
+                      wrapperStyle={{
+                        paddingTop: '20px',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </PieChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
