@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <esp_camera.h>
 
 // WiFi credentials
 const char* ssid = "Aashrith";
@@ -25,40 +24,24 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // HX711 object
 HX711 scale;
 
-// Barcode Scanner Configuration
-#define SCAN_BUTTON 5     // Button to trigger barcode scan
-#define LED_SCAN 13       // LED to indicate scanning mode
-
 // Configuration
 float calibration_factor = 2280.0;
 String sensorId = "ESP32_SCALE_001";
-String userId = "YOUR_USER_ID"; // Replace with actual user ID
+String userId = "3424388f-d99f-4e58-b319-bfaefabbe350"; // Replace with actual user ID
 String currentBarcode = "";
 String currentProductName = "";
-bool scanMode = false;
 bool calibrationMode = false;
 
 // Timing variables
 unsigned long lastWeightSend = 0;
-unsigned long lastBarcodeCheck = 0;
-const unsigned long SEND_INTERVAL = 3000; // Send data every 3 seconds
-const unsigned long BARCODE_CHECK_INTERVAL = 5000; // Check for new barcode every 5 seconds
+const unsigned long SEND_INTERVAL = 2000; // Send data every 2 seconds
 float lastSentWeight = 0;
-const float WEIGHT_THRESHOLD = 10; // Send if weight changes by more than 10g
-
-// Barcode scanning variables
-String scannedBarcode = "";
-bool barcodeReady = false;
+const float WEIGHT_THRESHOLD = 5; // Send if weight changes by more than 5g
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Smart Scale with Barcode Scanner v2.0");
-  Serial.println("Commands: 'c' = calibration, 's' = scan barcode, 'r' = reset");
-
-  // Initialize pins
-  pinMode(SCAN_BUTTON, INPUT_PULLUP);
-  pinMode(LED_SCAN, OUTPUT);
-  digitalWrite(LED_SCAN, LOW);
+  Serial.println("Smart Scale with Serial Barcode Input v2.0");
+  Serial.println("Commands: 'c' = calibration, 'r' = reset, or enter barcode");
 
   // Initialize LCD
   lcd.init();
@@ -75,38 +58,26 @@ void setup() {
   initializeScale();
   
   Serial.println("=== SYSTEM READY ===");
-  Serial.println("Place item on scale and press scan button or send barcode via Serial");
+  Serial.println("Enter barcode and place item on scale");
   displayReady();
 }
 
 void loop() {
-  // Handle serial commands
-  handleSerialCommands();
+  // Handle serial commands and barcode input
+  handleSerialInput();
   
-  // Handle barcode scanning button
-  handleBarcodeButton();
-  
-  // Handle barcode input from serial or external scanner
-  handleBarcodeInput();
-  
-  if (!calibrationMode && !scanMode) {
+  if (!calibrationMode) {
     // Get current weight
     float currentWeight = getCurrentWeight();
     
     // Display weight and product info
     displayWeightAndProduct(currentWeight);
     
-    // Send data to Supabase if conditions are met
-    if (shouldSendData(currentWeight)) {
+    // Send data to Supabase if conditions are met and we have a barcode
+    if (shouldSendData(currentWeight) && currentBarcode != "") {
       sendWeightToSupabase(currentWeight);
       lastSentWeight = currentWeight;
       lastWeightSend = millis();
-    }
-    
-    // Periodically check if we need to look up product info
-    if (millis() - lastBarcodeCheck > BARCODE_CHECK_INTERVAL && currentBarcode != "") {
-      lookupProductInfo(currentBarcode);
-      lastBarcodeCheck = millis();
     }
   }
 
@@ -143,7 +114,7 @@ void connectToWiFi() {
 }
 
 void initializeScale() {
-  scale.begin(DT, SCK);
+  scale.begin(DT, SKC);
   
   // Wait for HX711 to be ready
   int attempts = 0;
@@ -168,15 +139,13 @@ void initializeScale() {
   }
 }
 
-void handleSerialCommands() {
+void handleSerialInput() {
   if (Serial.available()) {
     String input = Serial.readString();
     input.trim();
     
     if (input == "c" || input == "C") {
       enterCalibrationMode();
-    } else if (input == "s" || input == "S") {
-      enterScanMode();
     } else if (input == "r" || input == "R") {
       resetSystem();
     } else if (input.length() >= 8 && input.length() <= 13) {
@@ -188,83 +157,23 @@ void handleSerialCommands() {
   }
 }
 
-void handleBarcodeButton() {
-  static bool lastButtonState = HIGH;
-  bool currentButtonState = digitalRead(SCAN_BUTTON);
-  
-  if (lastButtonState == HIGH && currentButtonState == LOW) {
-    // Button pressed
-    enterScanMode();
-    delay(200); // Debounce
-  }
-  
-  lastButtonState = currentButtonState;
-}
-
-void handleBarcodeInput() {
-  // This function can be extended to handle input from hardware barcode scanners
-  // For now, it processes barcodes from serial input
-  if (barcodeReady) {
-    processBarcode(scannedBarcode);
-    barcodeReady = false;
-    scannedBarcode = "";
-  }
-}
-
-void enterScanMode() {
-  scanMode = true;
-  digitalWrite(LED_SCAN, HIGH);
-  Serial.println("=== SCAN MODE ACTIVATED ===");
-  Serial.println("Please scan barcode or enter barcode manually");
-  
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("SCAN MODE");
-  lcd.setCursor(0, 1);
-  lcd.print("Scan barcode...");
-  
-  // Wait for barcode input or timeout
-  unsigned long scanStart = millis();
-  while (scanMode && (millis() - scanStart < 15000)) { // 15 second timeout
-    if (Serial.available()) {
-      String input = Serial.readString();
-      input.trim();
-      if (input.length() >= 8 && input.length() <= 13) {
-        processBarcode(input);
-        break;
-      }
-    }
-    delay(100);
-  }
-  
-  // Exit scan mode
-  scanMode = false;
-  digitalWrite(LED_SCAN, LOW);
-  if (currentBarcode == "") {
-    Serial.println("Scan timeout - no barcode detected");
-    lcd.setCursor(0, 1);
-    lcd.print("Scan timeout    ");
-    delay(2000);
-  }
-}
-
 void processBarcode(String barcode) {
   barcode.trim();
-  Serial.println("Barcode detected: " + barcode);
+  Serial.println("Barcode entered: " + barcode);
   
   currentBarcode = barcode;
-  scanMode = false;
-  digitalWrite(LED_SCAN, LOW);
   
   // Look up product information
   lookupProductInfo(barcode);
   
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Product scanned:");
+  lcd.print("Barcode set:");
   lcd.setCursor(0, 1);
   lcd.print(barcode.substring(0, 16));
   delay(2000);
+  
+  Serial.println("Now place item on scale...");
 }
 
 void lookupProductInfo(String barcode) {
@@ -290,11 +199,6 @@ void lookupProductInfo(String barcode) {
     if (doc.size() > 0) {
       currentProductName = doc[0]["product_name"].as<String>();
       Serial.println("Product found: " + currentProductName);
-      
-      lcd.setCursor(0, 0);
-      lcd.print("                "); // Clear line
-      lcd.setCursor(0, 0);
-      lcd.print(currentProductName.substring(0, 16));
     } else {
       Serial.println("Product not found in database");
       currentProductName = "Unknown Product";
@@ -317,7 +221,7 @@ float getCurrentWeight() {
   float weightGrams = weight * 1000;
   
   // Filter out negative weights and very small weights (noise)
-  if (weightGrams < 0 || weightGrams < 5) {
+  if (weightGrams < 0 || weightGrams < 2) {
     weightGrams = 0;
   }
   
@@ -325,18 +229,18 @@ float getCurrentWeight() {
 }
 
 void displayWeightAndProduct(float weight) {
-  // Display product name on first line
+  // Display product name or barcode on first line
   lcd.setCursor(0, 0);
-  if (currentProductName != "") {
+  if (currentProductName != "" && currentProductName != "Unknown Product") {
     lcd.print("                "); // Clear line
     lcd.setCursor(0, 0);
     lcd.print(currentProductName.substring(0, 16));
   } else if (currentBarcode != "") {
     lcd.print("                "); // Clear line
     lcd.setCursor(0, 0);
-    lcd.print("ID:" + currentBarcode.substring(0, 13));
+    lcd.print("BC:" + currentBarcode.substring(0, 13));
   } else {
-    lcd.print("Ready to scan   ");
+    lcd.print("Enter barcode   ");
   }
   
   // Display weight on second line
@@ -393,13 +297,13 @@ void sendWeightToSupabase(float weightGrams) {
   doc["barcode"] = currentBarcode;
   doc["weight_unit"] = "grams";
   doc["signal_strength"] = WiFi.RSSI();
-  doc["battery_level"] = 85; // Static for now, can be made dynamic
-  doc["temperature"] = 22.5; // Static for now, can add temperature sensor
+  doc["battery_level"] = 85; // Static for now
+  doc["temperature"] = 22.5; // Static for now
   
   String jsonString;
   serializeJson(doc, jsonString);
 
-  Serial.println("Sending weight data: " + String(weightGrams) + "g for " + currentBarcode);
+  Serial.println("Sending weight data: " + String(weightGrams) + "g for barcode: " + currentBarcode);
 
   int httpResponseCode = http.POST(jsonString);
   
@@ -407,7 +311,6 @@ void sendWeightToSupabase(float weightGrams) {
     String response = http.getString();
     if (httpResponseCode == 200) {
       Serial.println("Data sent successfully!");
-      // Brief success indicator on LCD
       lcd.setCursor(15, 1);
       lcd.print("✓");
     } else {
@@ -485,13 +388,14 @@ void resetSystem() {
   scale.tare();
   
   Serial.println("System reset complete");
+  Serial.println("Enter a barcode to start weighing");
   displayReady();
 }
 
 void displayReady() {
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Smart Scale Ready");
+  lcd.print("Enter Barcode");
   lcd.setCursor(0, 1);
-  lcd.print("Press scan/weigh");
+  lcd.print("via Serial...");
 }
