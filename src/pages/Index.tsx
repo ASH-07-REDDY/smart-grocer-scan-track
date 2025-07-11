@@ -11,6 +11,10 @@ import { NotificationsView } from "@/components/NotificationsView";
 import { SettingsView } from "@/components/SettingsView";
 import { WeightMonitor } from "@/components/WeightMonitor";
 import { supabase } from "@/integrations/supabase/client";
+import weightSensingFeature from "@/assets/weight-sensing-feature.jpg";
+import barcodeTrackingFeature from "@/assets/barcode-tracking-feature.jpg";
+import analyticsFeature from "@/assets/analytics-feature.jpg";
+import notificationsFeature from "@/assets/notifications-feature.jpg";
 
 function Index() {
   const { user, loading } = useAuth();
@@ -103,71 +107,50 @@ function Index() {
             </div>
             
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">How Smart Pantry Works</h2>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Smart Features</h2>
               <p className="text-gray-600 mb-6">
-                Smart Pantry combines ESP32 weight sensors with barcode technology to automatically track your grocery inventory. 
-                Monitor product weights in real-time and get insights into your consumption patterns.
+                Smart Pantry combines ESP32 weight sensors with barcode technology to automatically track your grocery inventory.
               </p>
               
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-gray-800">How to Use:</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</div>
-                      <div>
-                        <h4 className="font-medium">Connect ESP32 Scale</h4>
-                        <p className="text-sm text-gray-600">Set up your ESP32 with load sensors and connect to WiFi</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</div>
-                      <div>
-                        <h4 className="font-medium">Enter Barcode</h4>
-                        <p className="text-sm text-gray-600">Use the serial monitor to input the product barcode</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</div>
-                      <div>
-                        <h4 className="font-medium">Place Item on Scale</h4>
-                        <p className="text-sm text-gray-600">Put your product on the ESP32 scale platform</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</div>
-                      <div>
-                        <h4 className="font-medium">Monitor Real-time</h4>
-                        <p className="text-sm text-gray-600">View weight data instantly on the Weight Monitor page</p>
-                      </div>
-                    </div>
-                  </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <img 
+                    src={weightSensingFeature} 
+                    alt="Real-time Weight Sensing" 
+                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                  />
+                  <h3 className="font-semibold text-gray-800 mb-2">Real-time Weight Sensing</h3>
+                  <p className="text-sm text-gray-600">Monitor product weights instantly with ESP32 sensors</p>
                 </div>
                 
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-gray-800">Features:</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Real-time weight sensing</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Barcode-based product tracking</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Historical weight data</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Analytics and insights</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm">Smart notifications</span>
-                    </div>
-                  </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <img 
+                    src={barcodeTrackingFeature} 
+                    alt="Barcode Product Tracking" 
+                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                  />
+                  <h3 className="font-semibold text-gray-800 mb-2">Barcode Product Tracking</h3>
+                  <p className="text-sm text-gray-600">Identify products automatically using barcode technology</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <img 
+                    src={analyticsFeature} 
+                    alt="Analytics and Insights" 
+                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                  />
+                  <h3 className="font-semibold text-gray-800 mb-2">Analytics & Insights</h3>
+                  <p className="text-sm text-gray-600">Get detailed analytics on consumption patterns</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <img 
+                    src={notificationsFeature} 
+                    alt="Smart Notifications" 
+                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                  />
+                  <h3 className="font-semibold text-gray-800 mb-2">Smart Notifications</h3>
+                  <p className="text-sm text-gray-600">Receive alerts for low stock and expiry dates</p>
                 </div>
               </div>
             </div>
