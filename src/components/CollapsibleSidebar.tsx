@@ -69,7 +69,7 @@ export function CollapsibleSidebar({ isOpen, onToggle, currentView, onViewChange
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 cursor-pointer" onClick={onToggle}>
                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center">
-                  <img src="/lovable-uploads/a4dbde15-5638-45aa-87f9-4ac5bc268aa1.png" alt="Smart Pantry Logo" className="w-8 h-8 object-contain" />
+                  <img src="/lovable-uploads/6f512ac0-96f5-409c-84c5-139ea4c60396.png" alt="Smart Pantry Logo" className="w-8 h-8 object-contain" />
                 </div>
                 <div>
                   <h2 className="font-semibold text-lg">Smart Pantry</h2>
