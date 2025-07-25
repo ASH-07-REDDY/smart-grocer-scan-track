@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-device-id',
 }
 
 serve(async (req) => {
@@ -18,7 +18,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { barcode, weight_value, sensor_id, temperature, battery_level, signal_strength, user_id } = await req.json()
+    const { barcode, weight_value, sensor_id, temperature, battery_level, signal_strength, user_id, device_token } = await req.json()
+    const deviceId = req.headers.get('x-device-id')
 
     // Validate required fields
     if (!barcode || !weight_value || !sensor_id || !user_id) {
@@ -26,6 +27,31 @@ serve(async (req) => {
         JSON.stringify({ error: 'Missing required fields: barcode, weight_value, sensor_id, user_id' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Authenticate device if device_token and device_id are provided
+    if (device_token && deviceId) {
+      const { data: device, error: deviceError } = await supabaseClient
+        .from('device_registry')
+        .select('*')
+        .eq('device_id', deviceId)
+        .eq('device_token', device_token)
+        .eq('user_id', user_id)
+        .eq('is_active', true)
+        .single()
+
+      if (deviceError || !device) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid device credentials' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Update last seen timestamp
+      await supabaseClient
+        .from('device_registry')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', device.id)
     }
 
     // Insert weight reading

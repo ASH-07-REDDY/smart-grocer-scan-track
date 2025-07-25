@@ -24,7 +24,7 @@ interface NotificationPayload {
     amount: number;
     expiry_date: string;
   };
-  notification_type: 'expiry' | 'expired' | 'product_added' | 'product_removed';
+  notification_type: 'expiring' | 'expired' | 'product_added' | 'product_removed';
   days_until_expiry?: number;
 }
 
@@ -212,7 +212,7 @@ async function logDeliveryStatus(
 
 function getNotificationTitle(payload: NotificationPayload): string {
   switch (payload.notification_type) {
-    case 'expiry':
+    case 'expiring':
       if (payload.days_until_expiry === 0) {
         return "🚨 Product Expires Today!";
       } else if (payload.days_until_expiry === 1) {
@@ -235,7 +235,7 @@ function getNotificationMessage(payload: NotificationPayload): string {
   const { product, days_until_expiry } = payload;
   
   switch (payload.notification_type) {
-    case 'expiry':
+    case 'expiring':
       const urgency = days_until_expiry === 0 ? "expires today" : 
                      days_until_expiry === 1 ? "expires tomorrow" :
                      `expires in ${days_until_expiry} days`;
@@ -317,7 +317,7 @@ function getEmailHTML(userName: string, payload: NotificationPayload): string {
             </table>
           </div>
           
-          ${payload.notification_type === 'expiry' ? `
+          ${payload.notification_type === 'expiring' ? `
           <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 2px solid #fca5a5; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center;">
             <div style="font-size: 24px; margin-bottom: 10px;">
               ${days_until_expiry === 0 ? '🚨' : days_until_expiry === 1 ? '⚠️' : '📅'}
