@@ -10,6 +10,10 @@ import { AnalyticsView } from "@/components/AnalyticsView";
 import { NotificationsView } from "@/components/NotificationsView";
 import { SettingsView } from "@/components/SettingsView";
 import { WeightMonitor } from "@/components/WeightMonitor";
+import { RecipeSuggestions } from "@/components/RecipeSuggestions";
+import { NutritionalInfo } from "@/components/NutritionalInfo";
+import { WasteTracking } from "@/components/WasteTracking";
+import { Gamification } from "@/components/Gamification";
 import { supabase } from "@/integrations/supabase/client";
 import weightSensingFeature from "@/assets/weight-sensing-feature.jpg";
 import barcodeTrackingFeature from "@/assets/barcode-tracking-feature.jpg";
@@ -162,6 +166,14 @@ function Index() {
         return <ProductsView />;
       case "analytics":
         return <AnalyticsView />;
+      case "recipes":
+        return <RecipeSuggestions />;
+      case "nutrition":
+        return <NutritionalInfo />;
+      case "waste":
+        return <WasteTracking />;
+      case "gamification":
+        return <Gamification />;
       case "notifications":
         return <NotificationsView />;
       case "settings":
