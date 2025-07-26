@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Apple, Search, Zap, Heart, Wheat } from 'lucide-react';
+import { Apple, Search, Zap, Heart, Wheat, Trash2 } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -38,6 +38,25 @@ export function NutritionalInfo() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  const removeUsedProduct = async (productId: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('grocery_items')
+        .update({ quantity: 0 })
+        .eq('id', productId)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      // Remove from local state
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    } catch (error) {
+      console.error('Error removing used product:', error);
+    }
+  };
 
   // Sample nutrition database - in real app, this would come from barcode API
   const nutritionDatabase: Record<string, NutritionData> = {
@@ -104,7 +123,9 @@ export function NutritionalInfo() {
             *,
             categories (name)
           `)
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .gt('quantity', 0)
+          .gte('expiry_date', new Date().toISOString().split('T')[0]);
 
         if (error) throw error;
 
@@ -273,6 +294,18 @@ export function NutritionalInfo() {
                     <div>Fiber: {product.nutrition.fiber}g</div>
                     <div>Sugar: {product.nutrition.sugar}g</div>
                     <div>Sodium: {product.nutrition.sodium}mg</div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeUsedProduct(product.id)}
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Mark as Used
+                    </Button>
                   </div>
                 </div>
               )}

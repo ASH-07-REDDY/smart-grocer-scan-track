@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChefHat, Clock, Users, Search } from 'lucide-react';
+import { ChefHat, Clock, Users, Search, Play, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface Product {
@@ -170,6 +170,16 @@ export function RecipeSuggestions() {
         <Badge variant="secondary">
           {products.length} ingredients available
         </Badge>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // TODO: Implement AI recipe suggestions
+            alert('AI-powered daily recipe suggestions coming soon!');
+          }}
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          AI Suggestions
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -217,12 +227,29 @@ export function RecipeSuggestions() {
                 </div>
               )}
               
-              <Button 
-                className="w-full" 
-                variant={recipe.matchedIngredients.length >= recipe.ingredients.length * 0.7 ? "default" : "outline"}
-              >
-                View Recipe
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1" 
+                  variant={recipe.matchedIngredients.length >= recipe.ingredients.length * 0.7 ? "default" : "outline"}
+                  onClick={() => {
+                    const searchQuery = `${recipe.title} recipe how to make`;
+                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
+                  }}
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Watch Video
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // TODO: Implement detailed recipe view
+                    alert(`Recipe details for ${recipe.title} coming soon!`);
+                  }}
+                >
+                  View Recipe
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

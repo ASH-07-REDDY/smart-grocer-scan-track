@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Home, Package, BarChart3, Settings, User, Bell, Menu, X, LogOut, Scale, ChefHat, Apple, Trash2, Trophy } from "lucide-react";
+import { Home, Package, BarChart3, Settings, User, Bell, Menu, X, LogOut, Scale, ChefHat, Apple, Trash2, Trophy, ShoppingCart } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +46,11 @@ const menuItems = [
     title: "Gamification",
     url: "gamification",
     icon: Trophy,
+  },
+  {
+    title: "Online Shopping",
+    url: "online-shopping",
+    icon: ShoppingCart,
   },
   {
     title: "Notifications",

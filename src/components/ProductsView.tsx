@@ -148,6 +148,36 @@ export function ProductsView() {
     await deleteProduct(productId);
   };
 
+  const handleMarkAsWaste = async (productId: string, reason: string) => {
+    if (!user) return;
+    
+    try {
+      // Add to waste tracking
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        const { error } = await supabase
+          .from('waste_items')
+          .insert({
+            user_id: user.id,
+            product_name: product.name,
+            category: product.categories?.name || 'Unknown',
+            quantity: product.quantity,
+            quantity_type: product.quantity_type,
+            amount: product.amount,
+            waste_reason: reason,
+            waste_date: new Date().toISOString().split('T')[0]
+          });
+          
+        if (error) throw error;
+        
+        // Remove from grocery items
+        await deleteProduct(productId);
+      }
+    } catch (error) {
+      console.error('Error marking product as waste:', error);
+    }
+  };
+
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setShowEditProduct(true);
@@ -206,6 +236,7 @@ export function ProductsView() {
         getCategoryName={getCategoryName}
         onEditProduct={handleEditProduct}
         onDeleteProduct={handleDeleteProduct}
+        onMarkAsWaste={handleMarkAsWaste}
         onAddProduct={handleAddProductClick}
       />
 

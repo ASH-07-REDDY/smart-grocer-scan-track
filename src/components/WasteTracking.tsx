@@ -53,6 +53,7 @@ export function WasteTracking() {
   const [notes, setNotes] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [expiringItems, setExpiringItems] = useState<any[]>([]);
   const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'quarter'>('month');
 
   useEffect(() => {

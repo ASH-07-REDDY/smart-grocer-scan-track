@@ -27,17 +27,19 @@ interface ProductsGridProps {
   getCategoryName: (categoryId: string) => string;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
+  onMarkAsWaste?: (productId: string, reason: string) => void;
   onAddProduct: () => void;
 }
 
-export function ProductsGrid({
-  products,
-  loading,
-  searchTerm,
-  selectedCategory,
+export function ProductsGrid({ 
+  products, 
+  loading, 
+  searchTerm, 
+  selectedCategory, 
   getCategoryName,
   onEditProduct,
   onDeleteProduct,
+  onMarkAsWaste,
   onAddProduct
 }: ProductsGridProps) {
   const handleImageUpdate = async (productId: string, imageUrl: string) => {
@@ -104,6 +106,7 @@ export function ProductsGrid({
           }}
           onEdit={() => onEditProduct(product)}
           onDelete={() => onDeleteProduct(product.id)}
+          onMarkAsWaste={onMarkAsWaste}
           onImageUpdate={handleImageUpdate}
         />
       ))}

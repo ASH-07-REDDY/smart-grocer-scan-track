@@ -2,8 +2,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Check } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Calendar, DollarSign, Package, MoreVertical, Edit, Trash2, Sparkles, Check, AlertTriangle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useAutoImageAssignment } from "@/hooks/useAutoImageAssignment";
 
@@ -24,9 +24,10 @@ interface ProductCardProps {
   onEdit?: (product: Product) => void;
   onDelete?: (productId: string) => void;
   onImageUpdate?: (productId: string, imageUrl: string) => void;
+  onMarkAsWaste?: (productId: string, reason: string) => void;
 }
 
-export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete, onImageUpdate, onMarkAsWaste }: ProductCardProps) {
   const { downloadAndAssignImage, downloading } = useAutoImageAssignment();
   const [currentImage, setCurrentImage] = useState(() => {
     // Use existing image or default fallback
@@ -35,6 +36,10 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
       : `data:image/svg+xml,${encodeURIComponent(`<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="400" fill="#f3f4f6"/><text x="200" y="200" font-family="Arial" font-size="24" text-anchor="middle" fill="#9ca3af">No Image</text></svg>`)}`;
   });
   const [imageError, setImageError] = useState(false);
+
+  const handleMarkAsWaste = (reason: string) => {
+    onMarkAsWaste?.(product.id, reason);
+  };
 
   const isExpiringSoon = () => {
     const expiryDate = new Date(product.expiryDate);
@@ -118,6 +123,20 @@ export function ProductCard({ product, onEdit, onDelete, onImageUpdate }: Produc
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Product
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleMarkAsWaste("expired")}>
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Mark as Waste - Expired
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleMarkAsWaste("spoiled")}>
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Mark as Waste - Spoiled
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleMarkAsWaste("damaged")}>
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Mark as Waste - Damaged
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-red-600"
                   onClick={() => onDelete?.(product.id)}

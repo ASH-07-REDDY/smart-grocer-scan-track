@@ -14,6 +14,7 @@ import { RecipeSuggestions } from "@/components/RecipeSuggestions";
 import { NutritionalInfo } from "@/components/NutritionalInfo";
 import { WasteTracking } from "@/components/WasteTracking";
 import { Gamification } from "@/components/Gamification";
+import { OnlineShoppingView } from "@/components/OnlineShoppingView";
 import { supabase } from "@/integrations/supabase/client";
 import weightSensingFeature from "@/assets/weight-sensing-feature.jpg";
 import barcodeTrackingFeature from "@/assets/barcode-tracking-feature.jpg";
