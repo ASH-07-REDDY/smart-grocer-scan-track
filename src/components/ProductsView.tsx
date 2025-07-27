@@ -152,26 +152,29 @@ export function ProductsView() {
     if (!user) return;
     
     try {
-      // Add to waste tracking
+      // Find the product to mark as waste
       const product = products.find(p => p.id === productId);
       if (product) {
-        const { error } = await supabase
-          .from('waste_items')
-          .insert({
-            user_id: user.id,
-            product_name: product.name,
-            category: product.categories?.name || 'Unknown',
-            quantity: product.quantity,
-            quantity_type: product.quantity_type,
-            amount: product.amount,
-            waste_reason: reason,
-            waste_date: new Date().toISOString().split('T')[0]
-          });
-          
-        if (error) throw error;
-        
-        // Remove from grocery items
+        // For now, just remove from grocery items
+        // TODO: Add to waste_items table once types are updated
         await deleteProduct(productId);
+        
+        // Store waste data in localStorage temporarily
+        const wasteData = {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          product_name: product.name,
+          category: product.categories?.name || 'Unknown',
+          quantity: product.quantity,
+          quantity_type: product.quantity_type,
+          amount: product.amount,
+          waste_reason: reason,
+          waste_date: new Date().toISOString().split('T')[0]
+        };
+        
+        const existingWaste = JSON.parse(localStorage.getItem(`waste_items_${user.id}`) || '[]');
+        existingWaste.push(wasteData);
+        localStorage.setItem(`waste_items_${user.id}`, JSON.stringify(existingWaste));
       }
     } catch (error) {
       console.error('Error marking product as waste:', error);

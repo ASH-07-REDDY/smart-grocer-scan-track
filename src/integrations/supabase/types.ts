@@ -335,6 +335,48 @@ export type Database = {
         }
         Relationships: []
       }
+      waste_items: {
+        Row: {
+          amount: number | null
+          category: string | null
+          created_at: string
+          id: string
+          product_name: string
+          quantity: number
+          quantity_type: string
+          updated_at: string
+          user_id: string
+          waste_date: string
+          waste_reason: string
+        }
+        Insert: {
+          amount?: number | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          product_name: string
+          quantity?: number
+          quantity_type?: string
+          updated_at?: string
+          user_id: string
+          waste_date?: string
+          waste_reason: string
+        }
+        Update: {
+          amount?: number | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          product_name?: string
+          quantity?: number
+          quantity_type?: string
+          updated_at?: string
+          user_id?: string
+          waste_date?: string
+          waste_reason?: string
+        }
+        Relationships: []
+      }
       weight_readings: {
         Row: {
           barcode: string

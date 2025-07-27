@@ -175,6 +175,8 @@ function Index() {
         return <WasteTracking />;
       case "gamification":
         return <Gamification />;
+      case 'online-shopping':
+        return <OnlineShoppingView />;
       case "notifications":
         return <NotificationsView />;
       case "settings":

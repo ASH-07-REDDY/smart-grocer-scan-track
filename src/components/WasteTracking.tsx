@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Trash2, TrendingDown, Calendar, DollarSign, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Calendar, Package, DollarSign, TrendingDown, BarChart3, Trash2, ShoppingCart } from 'lucide-react';
 import { format, subDays, isWithinInterval } from 'date-fns';
 
 interface Product {
@@ -59,7 +59,54 @@ export function WasteTracking() {
   useEffect(() => {
     fetchProducts();
     fetchWasteEntries();
+    fetchExpiringItems();
   }, [user]);
+
+  const fetchExpiringItems = async () => {
+    if (!user) return;
+
+    try {
+      const today = new Date();
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(today.getDate() + 7);
+
+      const { data, error } = await supabase
+        .from('grocery_items')
+        .select(`
+          *,
+          categories (name)
+        `)
+        .eq('user_id', user.id)
+        .gt('quantity', 0)
+        .gte('expiry_date', today.toISOString().split('T')[0])
+        .lte('expiry_date', sevenDaysFromNow.toISOString().split('T')[0]);
+
+      if (error) throw error;
+      setExpiringItems(data || []);
+    } catch (error) {
+      console.error('Error fetching expiring items:', error);
+    }
+  };
+
+  const removeExpiringItem = async (itemId: string) => {
+    try {
+      setExpiringItems(prev => prev.filter(item => item.id !== itemId));
+    } catch (error) {
+      console.error('Error removing expiring item:', error);
+    }
+  };
+
+  const buyOnline = (productName: string) => {
+    // You can customize these URLs based on your region
+    const stores = [
+      { name: 'Amazon Fresh', url: `https://www.amazon.com/s?k=${encodeURIComponent(productName)}&i=amazonfresh` },
+      { name: 'Instacart', url: `https://www.instacart.com/store/search?k=${encodeURIComponent(productName)}` },
+      { name: 'Walmart Grocery', url: `https://www.walmart.com/search?q=${encodeURIComponent(productName)}` }
+    ];
+    
+    const randomStore = stores[Math.floor(Math.random() * stores.length)];
+    window.open(randomStore.url, '_blank');
+  };
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -85,10 +132,21 @@ export function WasteTracking() {
     if (!user) return;
 
     try {
-      // Since we don't have a waste_entries table, we'll simulate with localStorage for demo
-      const stored = localStorage.getItem(`waste_entries_${user.id}`);
+      // Use localStorage for waste entries since table types aren't updated yet
+      const stored = localStorage.getItem(`waste_items_${user.id}`);
       if (stored) {
-        setWasteEntries(JSON.parse(stored));
+        const wasteData = JSON.parse(stored);
+        const transformedEntries = wasteData.map((item: any) => ({
+          id: item.id,
+          product_id: item.product_id || '',
+          product_name: item.product_name,
+          quantity_wasted: item.quantity || 1,
+          waste_reason: item.waste_reason,
+          waste_date: item.waste_date,
+          estimated_value: item.amount || 0,
+          created_at: item.created_at || new Date().toISOString()
+        }));
+        setWasteEntries(transformedEntries);
       }
     } catch (error) {
       console.error('Error fetching waste entries:', error);
@@ -323,6 +381,77 @@ export function WasteTracking() {
             <p className="text-xs text-muted-foreground">
               Next 3 days
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Items Expiring Soon */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              Expiring Soon
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {expiringItems.length > 0 ? (
+                expiringItems.slice(0, 5).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-sm">{item.name}</div>
+                      <div className="text-xs text-gray-600">
+                        Expires: {new Date(item.expiry_date).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => buyOnline(item.name)}
+                        className="text-xs"
+                      >
+                        <ShoppingCart className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeExpiringItem(item.id)}
+                        className="text-xs"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-600">No items expiring soon</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Monthly Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total Items Wasted</span>
+                <span className="font-semibold">{totalWasteItems}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Estimated Value Lost</span>
+                <span className="font-semibold text-red-600">
+                  ₹{totalWasteValue.toFixed(2)}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
