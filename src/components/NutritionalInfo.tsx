@@ -125,7 +125,7 @@ export function NutritionalInfo() {
           `)
           .eq('user_id', user.id)
           .gt('quantity', 0)
-          .gte('expiry_date', new Date().toISOString().split('T')[0]);
+          .or(`expiry_date.is.null,expiry_date.gte.${new Date().toISOString().split('T')[0]}`);
 
         if (error) throw error;
 
@@ -147,6 +147,27 @@ export function NutritionalInfo() {
     };
 
     fetchProducts();
+
+    // Set up real-time listener for product changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'grocery_items'
+        },
+        (payload) => {
+          console.log('Product change detected in nutrition info:', payload);
+          fetchProducts(); // Refetch products when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const categories = ['all', ...new Set(products.map(p => p.categories?.name).filter(Boolean))];

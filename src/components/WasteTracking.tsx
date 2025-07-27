@@ -60,6 +60,40 @@ export function WasteTracking() {
     fetchProducts();
     fetchWasteEntries();
     fetchExpiringItems();
+
+    // Set up real-time listener for product and waste changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'grocery_items'
+        },
+        (payload) => {
+          console.log('Product change detected in waste tracking:', payload);
+          fetchProducts(); // Refetch products when changes occur
+          fetchExpiringItems(); // Also refetch expiring items
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'waste_items'
+        },
+        (payload) => {
+          console.log('Waste item change detected:', payload);
+          fetchWasteEntries(); // Refetch waste entries when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchExpiringItems = async () => {
