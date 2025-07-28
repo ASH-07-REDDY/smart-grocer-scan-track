@@ -124,13 +124,18 @@ export function NutritionalInfo() {
             categories (name)
           `)
           .eq('user_id', user.id)
-          .gt('quantity', 0)
-          .or(`expiry_date.is.null,expiry_date.gte.${new Date().toISOString().split('T')[0]}`);
+          .gt('quantity', 0); // Only show items in pantry
+
+        // Filter out expired items after fetching
+        const today = new Date().toISOString().split('T')[0];
+        const validData = (data || []).filter(product => 
+          !product.expiry_date || product.expiry_date >= today
+        );
 
         if (error) throw error;
 
         // Add nutrition data to products
-        const productsWithNutrition = (data || []).map(product => {
+        const productsWithNutrition = validData.map(product => {
           const nutrition = nutritionDatabase[product.name.toLowerCase()];
           return {
             ...product,
@@ -138,6 +143,7 @@ export function NutritionalInfo() {
           };
         });
 
+        console.log('Products with nutrition:', productsWithNutrition);
         setProducts(productsWithNutrition);
       } catch (error) {
         console.error('Error fetching products:', error);

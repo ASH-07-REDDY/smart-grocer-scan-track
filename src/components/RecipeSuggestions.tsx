@@ -120,7 +120,7 @@ export function RecipeSuggestions() {
           table: 'grocery_items'
         },
         (payload) => {
-          console.log('Product change detected:', payload);
+          console.log('Product change detected in recipes:', payload);
           fetchProducts(); // Refetch products when changes occur
         }
       )

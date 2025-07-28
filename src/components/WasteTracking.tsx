@@ -111,7 +111,8 @@ export function WasteTracking() {
           categories (name)
         `)
         .eq('user_id', user.id)
-        .gt('quantity', 0)
+        .gt('quantity', 0) // Only items in pantry
+        .not('expiry_date', 'is', null) // Must have expiry date
         .gte('expiry_date', today.toISOString().split('T')[0])
         .lte('expiry_date', sevenDaysFromNow.toISOString().split('T')[0]);
 
@@ -270,7 +271,7 @@ export function WasteTracking() {
   }, {} as Record<string, number>);
 
   const expiringSoon = products.filter(product => {
-    if (!product.expiry_date) return false;
+    if (!product.expiry_date || product.quantity <= 0) return false; // Only items in pantry
     const expiryDate = new Date(product.expiry_date);
     const threeDaysFromNow = new Date();
     threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
