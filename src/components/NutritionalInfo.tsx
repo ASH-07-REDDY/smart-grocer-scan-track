@@ -35,6 +35,7 @@ interface ProductWithNutrition extends Product {
 export function NutritionalInfo() {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductWithNutrition[]>([]);
+  const [newProducts, setNewProducts] = useState<ProductWithNutrition[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -144,7 +145,18 @@ export function NutritionalInfo() {
         });
 
         console.log('Products with nutrition:', productsWithNutrition);
+        
+        // Check for new products (added in the last 24 hours)
+        const twentyFourHoursAgo = new Date();
+        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        
+        const recentProducts = productsWithNutrition.filter(product => {
+          const createdAt = new Date(product.created_at);
+          return createdAt > twentyFourHoursAgo && product.nutrition;
+        });
+        
         setProducts(productsWithNutrition);
+        setNewProducts(recentProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
       } finally {
@@ -236,44 +248,92 @@ export function NutritionalInfo() {
         </div>
       </div>
 
+      {/* New Products Section */}
+      {newProducts.length > 0 && (
+        <Card className="glass-card border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Apple className="w-5 h-5" />
+              Recently Added Products
+              <Badge variant="secondary" className="ml-2">
+                New
+              </Badge>
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              Products added in the last 24 hours with nutritional information
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {newProducts.map((product) => (
+                <div key={product.id} className="accent-card p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">{product.name}</h4>
+                    <Badge variant="outline" className="border-accent-foreground/20">
+                      {product.quantity} {product.quantity_type}
+                    </Badge>
+                  </div>
+                  {product.nutrition && (
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Calories:</span>
+                        <span className="font-medium">{product.nutrition.calories}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Protein:</span>
+                        <span className="font-medium">{product.nutrition.protein}g</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Carbs:</span>
+                        <span className="font-medium">{product.nutrition.carbs}g</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Nutrition Summary */}
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5" />
+            <Zap className="w-5 h-5 text-primary" />
             Total Nutrition Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{Math.round(totalNutrition.calories)}</div>
-              <div className="text-sm text-gray-600">Calories</div>
+              <div className="text-2xl font-bold text-chart-1">{Math.round(totalNutrition.calories)}</div>
+              <div className="text-sm text-muted-foreground">Calories</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{Math.round(totalNutrition.protein)}g</div>
-              <div className="text-sm text-gray-600">Protein</div>
+              <div className="text-2xl font-bold text-chart-2">{Math.round(totalNutrition.protein)}g</div>
+              <div className="text-sm text-muted-foreground">Protein</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{Math.round(totalNutrition.carbs)}g</div>
-              <div className="text-sm text-gray-600">Carbs</div>
+              <div className="text-2xl font-bold text-chart-3">{Math.round(totalNutrition.carbs)}g</div>
+              <div className="text-sm text-muted-foreground">Carbs</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{Math.round(totalNutrition.fat)}g</div>
-              <div className="text-sm text-gray-600">Fat</div>
+              <div className="text-2xl font-bold text-chart-4">{Math.round(totalNutrition.fat)}g</div>
+              <div className="text-sm text-muted-foreground">Fat</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{Math.round(totalNutrition.fiber)}g</div>
-              <div className="text-sm text-gray-600">Fiber</div>
+              <div className="text-2xl font-bold text-chart-5">{Math.round(totalNutrition.fiber)}g</div>
+              <div className="text-sm text-muted-foreground">Fiber</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Products List */}
+      {/* All Products List */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredProducts.map((product) => (
-          <Card key={product.id} className="hover:shadow-lg transition-shadow">
+          <Card key={product.id} className="glass-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{product.name}</CardTitle>
@@ -323,12 +383,12 @@ export function NutritionalInfo() {
                     <div>Sodium: {product.nutrition.sodium}mg</div>
                   </div>
                   
-                  <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="mt-3 pt-3 border-t border-border/50">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => removeUsedProduct(product.id)}
-                      className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                      className="w-full text-destructive border-destructive/20 hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Mark as Used
@@ -343,9 +403,9 @@ export function NutritionalInfo() {
 
       {filteredProducts.length === 0 && (
         <div className="text-center py-12">
-          <Apple className="mx-auto w-16 h-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No nutritional data found</h3>
-          <p className="text-gray-600">Add more products with nutrition information to your pantry.</p>
+          <Apple className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No nutritional data found</h3>
+          <p className="text-muted-foreground">Add more products with nutrition information to your pantry.</p>
         </div>
       )}
     </div>
