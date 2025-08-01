@@ -13,9 +13,22 @@ export function useProductImages() {
     try {
       console.log(`Generating AI image for: ${productName} (${category})`);
       
+      // Create professional product prompt
+      const materials = ["plastic", "glass", "metal", "ceramic", "cardboard", "organic"];
+      const colors = ["vibrant colors", "natural tones", "muted pastels", "bold contrasts"];
+      const styles = ["realistic 3D render", "studio product photo", "professional product shot"];
+      const backgrounds = ["white background", "kitchen counter", "grocery shelf"];
+      
+      const material = materials[Math.floor(Math.random() * materials.length)];
+      const colorScheme = colors[Math.floor(Math.random() * colors.length)];
+      const style = styles[Math.floor(Math.random() * styles.length)];
+      const background = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+      
+      const professionalPrompt = `${productName}, ${category || 'food item'} product, made of ${material}, in ${colorScheme}, shown as a ${style}, placed on a ${background}, sharp focus, high detail, professional lighting, e-commerce style, product photography`;
+      
       const { data, error } = await supabase.functions.invoke('enhanced-product-image-generation', {
         body: {
-          productName,
+          productName: professionalPrompt,
           category,
           productId: `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         }

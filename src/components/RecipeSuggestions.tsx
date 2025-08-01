@@ -86,12 +86,11 @@ export function RecipeSuggestions() {
     try {
       const ingredientsList = products.map(p => p.name).join(', ');
       
-      const { data, error } = await supabase.functions.invoke('robust-image-generation', {
+      const { data, error } = await supabase.functions.invoke('enhanced-product-image-generation', {
         body: {
-          prompt: `Create a detailed recipe using these ingredients: ${ingredientsList}. 
+          productName: `Create a detailed recipe using these ingredients: ${ingredientsList}. 
           Format as JSON with: title, description, ingredients (array), instructions (array), cookTime, servings, difficulty.
           Make it creative and delicious!`,
-          productName: 'recipe',
           category: 'cooking'
         }
       });
