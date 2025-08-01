@@ -33,25 +33,113 @@ interface ProductWithNutrition extends Product {
   nutrition?: NutritionData;
 }
 
-// AI-enhanced nutrition database with more products
+// Comprehensive nutrition database with AI fallback
 const getNutritionData = async (productName: string): Promise<NutritionData | null> => {
   const nutritionDB: Record<string, NutritionData> = {
+    // Fruits
     'apple': { calories: 95, protein: 0.5, carbs: 25, fat: 0.3, fiber: 4, sugar: 19, sodium: 2, servingSize: '1 medium (182g)' },
     'banana': { calories: 105, protein: 1.3, carbs: 27, fat: 0.4, fiber: 3, sugar: 14, sodium: 1, servingSize: '1 medium (118g)' },
-    'chocolate': { calories: 546, protein: 4.9, carbs: 61, fat: 31, fiber: 7, sugar: 48, sodium: 24, servingSize: '100g' },
-    'milk': { calories: 150, protein: 8, carbs: 12, fat: 8, fiber: 0, sugar: 12, sodium: 105, servingSize: '1 cup (240ml)' },
-    'bread': { calories: 265, protein: 9, carbs: 49, fat: 3.2, fiber: 2.7, sugar: 5, sodium: 491, servingSize: '100g' },
-    'curd': { calories: 98, protein: 11, carbs: 4.7, fat: 4.3, fiber: 0, sugar: 4.7, sodium: 364, servingSize: '1 cup (245g)' },
-    'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, sugar: 0.1, sodium: 5, servingSize: '1 cup cooked (158g)' },
-    'chicken': { calories: 239, protein: 27, carbs: 0, fat: 14, fiber: 0, sugar: 0, sodium: 82, servingSize: '100g' },
-    'egg': { calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, sugar: 1.1, sodium: 124, servingSize: '1 large (50g)' },
+    'orange': { calories: 62, protein: 1.2, carbs: 15.4, fat: 0.2, fiber: 3.1, sugar: 12.2, sodium: 0, servingSize: '1 medium (154g)' },
+    'grapes': { calories: 62, protein: 0.6, carbs: 16, fat: 0.2, fiber: 0.9, sugar: 15, sodium: 2, servingSize: '1 cup (151g)' },
+    'mango': { calories: 107, protein: 0.8, carbs: 28, fat: 0.4, fiber: 3, sugar: 24, sodium: 2, servingSize: '1 cup diced (165g)' },
+    
+    // Vegetables
     'tomato': { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2, fiber: 1.2, sugar: 2.6, sodium: 5, servingSize: '1 medium (123g)' },
     'potato': { calories: 161, protein: 4.3, carbs: 37, fat: 0.2, fiber: 2.2, sugar: 0.8, sodium: 8, servingSize: '1 medium (173g)' },
-    'onion': { calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1, fiber: 1.7, sugar: 4.2, sodium: 4, servingSize: '1 medium (110g)' }
+    'onion': { calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1, fiber: 1.7, sugar: 4.2, sodium: 4, servingSize: '1 medium (110g)' },
+    'carrot': { calories: 25, protein: 0.5, carbs: 6, fat: 0.1, fiber: 1.7, sugar: 2.9, sodium: 42, servingSize: '1 medium (61g)' },
+    'broccoli': { calories: 55, protein: 3.7, carbs: 11, fat: 0.6, fiber: 5, sugar: 2.6, sodium: 64, servingSize: '1 cup chopped (156g)' },
+    'spinach': { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4, fiber: 2.2, sugar: 0.4, sodium: 79, servingSize: '1 cup (156g)' },
+    
+    // Dairy & Protein
+    'milk': { calories: 150, protein: 8, carbs: 12, fat: 8, fiber: 0, sugar: 12, sodium: 105, servingSize: '1 cup (240ml)' },
+    'curd': { calories: 98, protein: 11, carbs: 4.7, fat: 4.3, fiber: 0, sugar: 4.7, sodium: 364, servingSize: '1 cup (245g)' },
+    'cheese': { calories: 113, protein: 7, carbs: 1, fat: 9, fiber: 0, sugar: 0.5, sodium: 180, servingSize: '1 oz (28g)' },
+    'yogurt': { calories: 149, protein: 8.5, carbs: 11.4, fat: 8, fiber: 0, sugar: 11.4, sodium: 113, servingSize: '1 cup (245g)' },
+    'egg': { calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, sugar: 1.1, sodium: 124, servingSize: '1 large (50g)' },
+    'chicken': { calories: 239, protein: 27, carbs: 0, fat: 14, fiber: 0, sugar: 0, sodium: 82, servingSize: '100g' },
+    'fish': { calories: 206, protein: 22, carbs: 0, fat: 12, fiber: 0, sugar: 0, sodium: 59, servingSize: '100g' },
+    'paneer': { calories: 321, protein: 25, carbs: 3.4, fat: 25, fiber: 0, sugar: 2.6, sodium: 18, servingSize: '100g' },
+    
+    // Grains & Carbs
+    'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, sugar: 0.1, sodium: 5, servingSize: '1 cup cooked (158g)' },
+    'bread': { calories: 265, protein: 9, carbs: 49, fat: 3.2, fiber: 2.7, sugar: 5, sodium: 491, servingSize: '100g' },
+    'wheat': { calories: 339, protein: 13.2, carbs: 71.2, fat: 2.5, fiber: 12.2, sugar: 0.4, sodium: 2, servingSize: '100g' },
+    'oats': { calories: 389, protein: 16.9, carbs: 66.3, fat: 6.9, fiber: 10.6, sugar: 0.9, sodium: 2, servingSize: '100g' },
+    'pasta': { calories: 220, protein: 8, carbs: 44, fat: 1.3, fiber: 2.5, sugar: 0.8, sodium: 1, servingSize: '100g cooked' },
+    
+    // Legumes & Nuts
+    'lentils': { calories: 353, protein: 25, carbs: 60, fat: 1.1, fiber: 10.7, sugar: 2, sodium: 6, servingSize: '100g' },
+    'chickpeas': { calories: 378, protein: 20.1, carbs: 63, fat: 6.4, fiber: 12.2, sugar: 10.7, sodium: 24, servingSize: '100g' },
+    'almonds': { calories: 579, protein: 21.2, carbs: 21.6, fat: 49.9, fiber: 12.5, sugar: 4.4, sodium: 1, servingSize: '100g' },
+    'peanuts': { calories: 567, protein: 25.8, carbs: 16.1, fat: 49.2, fiber: 8.5, sugar: 4.7, sodium: 18, servingSize: '100g' },
+    
+    // Others
+    'chocolate': { calories: 546, protein: 4.9, carbs: 61, fat: 31, fiber: 7, sugar: 48, sodium: 24, servingSize: '100g' },
+    'honey': { calories: 304, protein: 0.3, carbs: 82.4, fat: 0, fiber: 0.2, sugar: 82.1, sodium: 4, servingSize: '100g' },
+    'oil': { calories: 884, protein: 0, carbs: 0, fat: 100, fiber: 0, sugar: 0, sodium: 0, servingSize: '100ml' }
   };
 
-  const key = productName.toLowerCase();
-  return nutritionDB[key] || null;
+  const key = productName.toLowerCase().trim();
+  
+  // First check direct match
+  if (nutritionDB[key]) {
+    return nutritionDB[key];
+  }
+  
+  // Check partial matches
+  for (const [dbKey, nutrition] of Object.entries(nutritionDB)) {
+    if (key.includes(dbKey) || dbKey.includes(key)) {
+      return nutrition;
+    }
+  }
+  
+  // AI-powered nutrition generation for unknown products
+  try {
+    const { data, error } = await supabase.functions.invoke('enhanced-product-image-generation', {
+      body: {
+        productName: `Generate nutritional information for "${productName}" in JSON format: {"calories": number, "protein": number, "carbs": number, "fat": number, "fiber": number, "sugar": number, "sodium": number, "servingSize": "string"}. Provide realistic nutritional values per typical serving.`,
+        category: 'nutrition',
+        productId: `nutrition-${Date.now()}`
+      }
+    });
+    
+    if (data?.nutritionData) {
+      return data.nutritionData;
+    }
+  } catch (error) {
+    console.log('AI nutrition generation failed, using default values');
+  }
+  
+  // Fallback: Generate reasonable defaults based on product type
+  const estimateNutrition = (name: string): NutritionData => {
+    const lower = name.toLowerCase();
+    
+    // Fruit-like products
+    if (lower.includes('fruit') || lower.includes('juice') || lower.includes('sweet')) {
+      return { calories: 60, protein: 0.5, carbs: 15, fat: 0.2, fiber: 2, sugar: 12, sodium: 2, servingSize: '100g' };
+    }
+    
+    // Vegetable-like products
+    if (lower.includes('vegetable') || lower.includes('green') || lower.includes('leaf')) {
+      return { calories: 25, protein: 2, carbs: 5, fat: 0.3, fiber: 3, sugar: 2, sodium: 10, servingSize: '100g' };
+    }
+    
+    // Meat/protein products
+    if (lower.includes('meat') || lower.includes('protein') || lower.includes('fish')) {
+      return { calories: 200, protein: 20, carbs: 0, fat: 12, fiber: 0, sugar: 0, sodium: 70, servingSize: '100g' };
+    }
+    
+    // Grain/cereal products
+    if (lower.includes('grain') || lower.includes('cereal') || lower.includes('flour')) {
+      return { calories: 300, protein: 8, carbs: 60, fat: 2, fiber: 8, sugar: 1, sodium: 5, servingSize: '100g' };
+    }
+    
+    // Default for unknown products
+    return { calories: 100, protein: 3, carbs: 20, fat: 2, fiber: 2, sugar: 5, sodium: 20, servingSize: '100g' };
+  };
+  
+  return estimateNutrition(productName);
 };
 
 export function NutritionalInfo() {
