@@ -167,22 +167,26 @@ export function WasteTracking() {
     if (!user) return;
 
     try {
-      // Use localStorage for waste entries since table types aren't updated yet
-      const stored = localStorage.getItem(`waste_items_${user.id}`);
-      if (stored) {
-        const wasteData = JSON.parse(stored);
-        const transformedEntries = wasteData.map((item: any) => ({
-          id: item.id,
-          product_id: item.product_id || '',
-          product_name: item.product_name,
-          quantity_wasted: item.quantity || 1,
-          waste_reason: item.waste_reason,
-          waste_date: item.waste_date,
-          estimated_value: item.amount || 0,
-          created_at: item.created_at || new Date().toISOString()
-        }));
-        setWasteEntries(transformedEntries);
-      }
+      // Fetch actual waste entries from Supabase waste_items table
+      const { data, error } = await supabase
+        .from('waste_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const transformedEntries = (data || []).map((item: any) => ({
+        id: item.id,
+        product_id: item.id,
+        product_name: item.product_name,
+        quantity_wasted: item.quantity || 1,
+        waste_reason: item.waste_reason,
+        waste_date: item.waste_date,
+        estimated_value: item.amount || 0,
+        created_at: item.created_at
+      }));
+      setWasteEntries(transformedEntries);
     } catch (error) {
       console.error('Error fetching waste entries:', error);
     } finally {
@@ -200,29 +204,30 @@ export function WasteTracking() {
     if (!product) return;
 
     try {
-      // Create waste entry
-      const wasteEntry: WasteEntry = {
-        id: crypto.randomUUID(),
-        product_id: product.id,
-        product_name: product.name,
-        quantity_wasted: wasteQuantity,
-        waste_reason: wasteReason,
-        waste_date: new Date().toISOString().split('T')[0],
-        estimated_value: (product.amount / product.quantity) * wasteQuantity,
-        created_at: new Date().toISOString()
-      };
+      // Insert waste entry into Supabase waste_items table
+      const { error: wasteError } = await supabase
+        .from('waste_items')
+        .insert({
+          user_id: user.id,
+          product_name: product.name,
+          quantity: wasteQuantity,
+          quantity_type: product.quantity_type,
+          waste_reason: wasteReason,
+          amount: (product.amount / product.quantity) * wasteQuantity,
+          waste_date: new Date().toISOString().split('T')[0],
+          category: product.categories?.name || null
+        });
 
-      // Store in localStorage for demo (in real app, would use Supabase)
-      const currentEntries = [...wasteEntries, wasteEntry];
-      setWasteEntries(currentEntries);
-      localStorage.setItem(`waste_entries_${user.id}`, JSON.stringify(currentEntries));
+      if (wasteError) throw wasteError;
 
-      // Update product quantity
+      // Update product quantity in grocery_items
       const newQuantity = Math.max(0, product.quantity - wasteQuantity);
-      await supabase
+      const { error: updateError } = await supabase
         .from('grocery_items')
         .update({ quantity: newQuantity })
         .eq('id', product.id);
+
+      if (updateError) throw updateError;
 
       // Reset form
       setSelectedProduct('');
@@ -231,8 +236,11 @@ export function WasteTracking() {
       setNotes('');
       setIsDialogOpen(false);
 
-      // Refresh data
+      // Refresh data - stats will update automatically via real-time listener
       fetchProducts();
+      fetchWasteEntries();
+      fetchExpiringItems();
+      
       toast.success('Waste entry recorded successfully');
     } catch (error) {
       console.error('Error recording waste:', error);
@@ -515,22 +523,30 @@ export function WasteTracking() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredEntries.slice(0, 10).map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <div className="font-medium">{entry.product_name}</div>
-                  <div className="text-sm text-gray-600">
-                    {entry.quantity_wasted} units • {entry.waste_reason}
+            {filteredEntries.length > 0 ? (
+              filteredEntries.slice(0, 10).map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg bg-red-50">
+                  <div className="flex-1">
+                    <div className="font-medium">{entry.product_name}</div>
+                    <div className="text-sm text-gray-600">
+                      {entry.quantity_wasted} units • {entry.waste_reason}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Wasted on: {format(new Date(entry.waste_date), 'MMM dd, yyyy')}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {format(new Date(entry.waste_date), 'MMM dd, yyyy')}
+                  <div className="text-right">
+                    <div className="font-medium text-red-600">₹{entry.estimated_value.toFixed(2)}</div>
+                    <Badge variant="destructive" className="text-xs">Thrown Away</Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-medium text-red-600">₹{entry.estimated_value.toFixed(2)}</div>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Trash2 className="mx-auto w-12 h-12 text-gray-300 mb-2" />
+                <p>No waste entries found for the selected period</p>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>

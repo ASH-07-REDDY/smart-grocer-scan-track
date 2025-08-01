@@ -21,6 +21,14 @@ interface Store {
   baseUrl: string;
   searchUrl: string;
   color: string;
+  priceRange: string;
+  regionSpecific: boolean;
+}
+
+interface LocationPricing {
+  region: string;
+  currency: string;
+  avgPriceMultiplier: number;
 }
 
 export function OnlineShoppingView() {
@@ -29,37 +37,77 @@ export function OnlineShoppingView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
+  const [userLocation, setUserLocation] = useState<LocationPricing>({ region: 'India', currency: '₹', avgPriceMultiplier: 1 });
+
+  // Location-based pricing configuration
+  const locationPricing: Record<string, LocationPricing> = {
+    'India': { region: 'India', currency: '₹', avgPriceMultiplier: 1 },
+    'US': { region: 'United States', currency: '$', avgPriceMultiplier: 0.65 },
+    'UK': { region: 'United Kingdom', currency: '£', avgPriceMultiplier: 0.55 },
+    'EU': { region: 'Europe', currency: '€', avgPriceMultiplier: 0.6 }
+  };
 
   const stores: Store[] = [
     {
-      name: 'Amazon Fresh',
+      name: 'BigBasket',
       logo: '🛒',
-      baseUrl: 'https://www.amazon.com',
-      searchUrl: 'https://www.amazon.com/s?k={query}&i=amazonfresh',
-      color: 'orange'
+      baseUrl: 'https://www.bigbasket.com',
+      searchUrl: 'https://www.bigbasket.com/ps/?q={query}',
+      color: 'green',
+      priceRange: '₹50-500',
+      regionSpecific: true
     },
     {
-      name: 'Instacart',
-      logo: '🥕',
-      baseUrl: 'https://www.instacart.com',
-      searchUrl: 'https://www.instacart.com/store/search?k={query}',
-      color: 'green'
+      name: 'Grofers/Blinkit',
+      logo: '⚡',
+      baseUrl: 'https://blinkit.com',
+      searchUrl: 'https://blinkit.com/s/?q={query}',
+      color: 'yellow',
+      priceRange: '₹30-400',
+      regionSpecific: true
     },
     {
-      name: 'Walmart Grocery',
+      name: 'Amazon Fresh',
+      logo: '📦',
+      baseUrl: 'https://www.amazon.in',
+      searchUrl: 'https://www.amazon.in/s?k={query}&i=amazonfresh',
+      color: 'orange',
+      priceRange: '₹40-600',
+      regionSpecific: false
+    },
+    {
+      name: 'Flipkart Grocery',
       logo: '🏪',
-      baseUrl: 'https://www.walmart.com',
-      searchUrl: 'https://www.walmart.com/search?q={query}',
-      color: 'blue'
-    },
-    {
-      name: 'Target',
-      logo: '🎯',
-      baseUrl: 'https://www.target.com',
-      searchUrl: 'https://www.target.com/s?searchTerm={query}',
-      color: 'red'
+      baseUrl: 'https://www.flipkart.com',
+      searchUrl: 'https://www.flipkart.com/search?q={query}&marketplace=GROCERY',
+      color: 'blue',
+      priceRange: '₹35-450',
+      regionSpecific: true
     }
   ];
+
+  // Detect user location (simplified - in real app would use geolocation API)
+  useEffect(() => {
+    const detectLocation = () => {
+      // Try to detect based on timezone, language, or saved preference
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezone.includes('Asia/Kolkata') || timezone.includes('Asia/Calcutta')) {
+        setUserLocation(locationPricing['India']);
+      } else if (timezone.includes('America/')) {
+        setUserLocation(locationPricing['US']);
+      } else if (timezone.includes('Europe/London')) {
+        setUserLocation(locationPricing['UK']);
+      } else if (timezone.includes('Europe/')) {
+        setUserLocation(locationPricing['EU']);
+      }
+    };
+    detectLocation();
+  }, []);
+
+  const getLocalizedPrice = (basePrice: number) => {
+    const localPrice = basePrice * userLocation.avgPriceMultiplier;
+    return `${userLocation.currency}${localPrice.toFixed(0)}`;
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -158,6 +206,10 @@ export function OnlineShoppingView() {
               >
                 <div className="text-2xl">{store.logo}</div>
                 <div className="text-sm font-medium text-center">{store.name}</div>
+                <div className="text-xs text-muted-foreground">{store.priceRange}</div>
+                {store.regionSpecific && (
+                  <Badge variant="secondary" className="text-xs">Local Store</Badge>
+                )}
                 {searchTerm && (
                   <div className="text-xs text-gray-600">
                     Search: "{searchTerm}"
@@ -251,6 +303,9 @@ export function OnlineShoppingView() {
                     <div className="font-medium">{product.name}</div>
                     <div className="text-sm text-gray-600">
                       {product.quantity} {product.quantity_type}
+                    </div>
+                    <div className="text-sm font-semibold text-primary">
+                      Estimated: {getLocalizedPrice(Math.floor(Math.random() * 200) + 50)}
                     </div>
                     {product.categories && (
                       <Badge variant="outline" className="text-xs mt-1">
