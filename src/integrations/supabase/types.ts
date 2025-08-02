@@ -477,7 +477,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      send_password_reset_email: {
+        Args: { user_email: string; reset_link: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

@@ -86,8 +86,8 @@ function Index() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen pantry-bg flex items-center justify-center">
+        <div className="text-lg font-medium">Loading your smart pantry...</div>
       </div>
     );
   }
@@ -100,62 +100,64 @@ function Index() {
     switch (currentView) {
       case "dashboard":
         return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
+          <div className="space-y-8">
+            <div className="text-center">
               <img 
                 src="/lovable-uploads/6f512ac0-96f5-409c-84c5-139ea4c60396.png" 
                 alt="Smart Pantry Logo" 
-                className="w-32 h-32 mx-auto mb-4 rounded-full"
+                className="w-24 h-24 mx-auto mb-4 rounded-full shadow-elegant"
               />
-              <h1 className="text-3xl font-bold text-gray-900">Welcome to Smart Pantry</h1>
-              <p className="text-gray-600 text-lg">Your intelligent grocery inventory management system</p>
+              <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+                Welcome to Smart Pantry
+              </h1>
+              <p className="text-muted-foreground text-lg">Your intelligent grocery inventory management system</p>
             </div>
             
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">Smart Features</h2>
-              <p className="text-gray-600 mb-6">
+            <div className="modern-card p-6">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Smart Features</h2>
+              <p className="text-muted-foreground mb-6">
                 Smart Pantry combines ESP32 weight sensors with barcode technology to automatically track your grocery inventory.
               </p>
               
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="glass-card text-center p-6">
                   <img 
                     src={weightSensingFeature} 
                     alt="Real-time Weight Sensing" 
-                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                    className="w-20 h-20 mx-auto mb-4 rounded-xl object-cover shadow-soft"
                   />
-                  <h3 className="font-semibold text-gray-800 mb-2">Real-time Weight Sensing</h3>
-                  <p className="text-sm text-gray-600">Monitor product weights instantly with ESP32 sensors</p>
+                  <h3 className="font-semibold text-foreground mb-2">Real-time Weight Sensing</h3>
+                  <p className="text-sm text-muted-foreground">Monitor product weights instantly with ESP32 sensors</p>
                 </div>
                 
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="glass-card text-center p-6">
                   <img 
                     src={barcodeTrackingFeature} 
                     alt="Barcode Product Tracking" 
-                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                    className="w-20 h-20 mx-auto mb-4 rounded-xl object-cover shadow-soft"
                   />
-                  <h3 className="font-semibold text-gray-800 mb-2">Barcode Product Tracking</h3>
-                  <p className="text-sm text-gray-600">Identify products automatically using barcode technology</p>
+                  <h3 className="font-semibold text-foreground mb-2">Barcode Product Tracking</h3>
+                  <p className="text-sm text-muted-foreground">Identify products automatically using barcode technology</p>
                 </div>
                 
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="glass-card text-center p-6">
                   <img 
                     src={analyticsFeature} 
                     alt="Analytics and Insights" 
-                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                    className="w-20 h-20 mx-auto mb-4 rounded-xl object-cover shadow-soft"
                   />
-                  <h3 className="font-semibold text-gray-800 mb-2">Analytics & Insights</h3>
-                  <p className="text-sm text-gray-600">Get detailed analytics on consumption patterns</p>
+                  <h3 className="font-semibold text-foreground mb-2">Analytics & Insights</h3>
+                  <p className="text-sm text-muted-foreground">Get detailed analytics on consumption patterns</p>
                 </div>
                 
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="glass-card text-center p-6">
                   <img 
                     src={notificationsFeature} 
                     alt="Smart Notifications" 
-                    className="w-24 h-24 mx-auto mb-3 rounded-lg object-cover"
+                    className="w-20 h-20 mx-auto mb-4 rounded-xl object-cover shadow-soft"
                   />
-                  <h3 className="font-semibold text-gray-800 mb-2">Smart Notifications</h3>
-                  <p className="text-sm text-gray-600">Receive alerts for low stock and expiry dates</p>
+                  <h3 className="font-semibold text-foreground mb-2">Smart Notifications</h3>
+                  <p className="text-sm text-muted-foreground">Receive alerts for low stock and expiry dates</p>
                 </div>
               </div>
             </div>
@@ -197,7 +199,7 @@ function Index() {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen pantry-bg flex w-full">
       <CollapsibleSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
