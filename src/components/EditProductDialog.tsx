@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, ScanLine } from "lucide-react";
+import { Upload, ScanLine, Camera, Sparkles } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { ProductCamera } from "@/components/ProductCamera";
 
 interface Category {
   id: string;
@@ -46,6 +47,8 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
     barcode: ""
   });
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'capture' | 'recognize'>('capture');
 
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
 
@@ -96,6 +99,25 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
     }
   };
 
+  const handleCameraCapture = (imageUrl: string) => {
+    setFormData({ ...formData, image_url: imageUrl });
+    setShowCamera(false);
+  };
+
+  const handleProductRecognition = (productData: { name: string; confidence: number; imageUrl: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      name: productData.name,
+      image_url: productData.imageUrl
+    }));
+    setShowCamera(false);
+  };
+
+  const openCamera = (mode: 'capture' | 'recognize') => {
+    setCameraMode(mode);
+    setShowCamera(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateProduct({
@@ -126,12 +148,35 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
                     <Upload className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="flex-1"
-                />
+                <div className="flex-1 space-y-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openCamera('capture')}
+                      className="flex-1"
+                    >
+                      <Camera className="w-4 h-4 mr-1" />
+                      Camera
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openCamera('recognize')}
+                      className="flex-1"
+                    >
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      AI Scan
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -260,6 +305,14 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
         open={showBarcodeScanner}
         onOpenChange={setShowBarcodeScanner}
         onBarcodeScanned={handleBarcodeScanned}
+      />
+      
+      <ProductCamera
+        open={showCamera}
+        onOpenChange={setShowCamera}
+        onImageCaptured={handleCameraCapture}
+        onProductRecognized={handleProductRecognition}
+        mode={cameraMode}
       />
     </>
   );

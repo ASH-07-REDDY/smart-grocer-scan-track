@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Scan } from "lucide-react";
+import { Upload, Scan, Camera, Sparkles } from "lucide-react";
+import { ProductCamera } from "@/components/ProductCamera";
 
 interface Category {
   id: string;
@@ -52,6 +53,8 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
     image_url: "",
     barcode: ""
   });
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'capture' | 'recognize'>('capture');
 
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
 
@@ -108,6 +111,25 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
     }
   };
 
+  const handleCameraCapture = (imageUrl: string) => {
+    setFormData({ ...formData, image_url: imageUrl });
+    setShowCamera(false);
+  };
+
+  const handleProductRecognition = (productData: { name: string; confidence: number; imageUrl: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      name: productData.name,
+      image_url: productData.imageUrl
+    }));
+    setShowCamera(false);
+  };
+
+  const openCamera = (mode: 'capture' | 'recognize') => {
+    setCameraMode(mode);
+    setShowCamera(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAddProduct({
@@ -152,25 +174,48 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
             </div>
           )}
 
-          {/* Image Upload */}
-          <div className="space-y-2">
-            <Label>Product Image</Label>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                {formData.image_url ? (
-                  <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <Upload className="w-8 h-8 text-gray-400" />
-                )}
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>Product Image</Label>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                  {formData.image_url ? (
+                    <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openCamera('capture')}
+                      className="flex-1"
+                    >
+                      <Camera className="w-4 h-4 mr-1" />
+                      Camera
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openCamera('recognize')}
+                      className="flex-1"
+                    >
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      AI Scan
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="flex-1"
-              />
             </div>
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -281,6 +326,14 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
           </div>
         </form>
       </DialogContent>
+      
+      <ProductCamera
+        open={showCamera}
+        onOpenChange={setShowCamera}
+        onImageCaptured={handleCameraCapture}
+        onProductRecognized={handleProductRecognition}
+        mode={cameraMode}
+      />
     </Dialog>
   );
 }
