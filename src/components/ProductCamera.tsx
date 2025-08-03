@@ -4,12 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Camera, RotateCcw, Check, Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProductCameraProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImageCaptured: (imageUrl: string) => void;
-  onProductRecognized?: (productData: { name: string; confidence: number; imageUrl: string }) => void;
+  onProductRecognized?: (productData: { 
+    name: string; 
+    confidence: number; 
+    imageUrl: string; 
+    category?: string; 
+    brand?: string; 
+    details?: string; 
+  }) => void;
   mode: 'capture' | 'recognize';
   title?: string;
 }
@@ -88,38 +96,51 @@ export function ProductCamera({
   const recognizeProduct = async (imageUrl: string) => {
     setIsRecognizing(true);
     try {
-      // Simulate AI product recognition
-      // In a real app, you would send the image to an AI service
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Starting AI product recognition...');
       
-      // Mock recognition results
-      const mockProducts = [
-        { name: "Coca Cola", confidence: 0.95 },
-        { name: "Apple iPhone", confidence: 0.89 },
-        { name: "Banana", confidence: 0.92 },
-        { name: "Bread Loaf", confidence: 0.87 },
-        { name: "Milk Carton", confidence: 0.94 }
-      ];
+      // Call our AI recognition edge function
+      const { data, error } = await supabase.functions.invoke('ai-product-recognition', {
+        body: {
+          imageData: imageUrl,
+          mode: 'comprehensive' // Use comprehensive mode for best accuracy
+        }
+      });
       
-      const randomProduct = mockProducts[Math.floor(Math.random() * mockProducts.length)];
-      
-      if (onProductRecognized) {
-        onProductRecognized({
-          ...randomProduct,
-          imageUrl
-        });
+      if (error) {
+        throw error;
       }
       
-      toast({
-        title: "Product Recognized!",
-        description: `Detected: ${randomProduct.name} (${Math.round(randomProduct.confidence * 100)}% confidence)`,
-      });
+      if (data && data.productName) {
+        const productData = {
+          name: data.productName,
+          confidence: data.confidence,
+          imageUrl,
+          category: data.category,
+          brand: data.brand,
+          details: data.details
+        };
+        
+        if (onProductRecognized) {
+          onProductRecognized(productData);
+        }
+        
+        const confidencePercent = Math.round(data.confidence * 100);
+        
+        toast({
+          title: "Product Recognized!",
+          description: `${data.productName} (${confidencePercent}% confidence)${data.brand ? ` by ${data.brand}` : ''}`,
+        });
+        
+        console.log('Recognition successful:', productData);
+      } else {
+        throw new Error('No product data received');
+      }
       
     } catch (error) {
       console.error('Product recognition error:', error);
       toast({
         title: "Recognition Failed",
-        description: "Could not identify the product. Please try again.",
+        description: "Could not identify the product. Please try again with better lighting.",
         variant: "destructive",
       });
     } finally {
@@ -252,8 +273,11 @@ export function ProductCamera({
             {mode === 'capture' ? (
               <>📷 Position your product in the frame and tap capture to save the image.</>
             ) : (
-              <>🤖 Point camera at product for AI recognition. Make sure the item is clearly visible.</>
+              <>🤖 AI Recognition: Point camera at product for smart identification. Uses advanced computer vision for accurate results.</>
             )}
+            <div className="mt-1 text-xs text-gray-400">
+              {mode === 'recognize' && 'Best results with good lighting and clear view of product packaging/labels.'}
+            </div>
           </div>
         </div>
       </DialogContent>

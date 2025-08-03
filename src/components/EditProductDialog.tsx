@@ -104,11 +104,24 @@ export function EditProductDialog({ open, onOpenChange, product, onUpdateProduct
     setShowCamera(false);
   };
 
-  const handleProductRecognition = (productData: { name: string; confidence: number; imageUrl: string }) => {
+  const handleProductRecognition = (productData: { 
+    name: string; 
+    confidence: number; 
+    imageUrl: string; 
+    category?: string; 
+    brand?: string; 
+    details?: string; 
+  }) => {
+    // Find category by name if provided
+    const categoryMatch = productData.category ? 
+      categories.find(c => c.name.toLowerCase().includes(productData.category!.toLowerCase())) : 
+      null;
+    
     setFormData(prev => ({
       ...prev,
       name: productData.name,
-      image_url: productData.imageUrl
+      image_url: productData.imageUrl,
+      category_id: categoryMatch?.id || prev.category_id
     }));
     setShowCamera(false);
   };
