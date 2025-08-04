@@ -22,6 +22,8 @@ interface RecognitionResult {
   brand?: string;
   details?: string;
   suggestions?: string[];
+  actualProductImage?: string;
+  needsImage?: boolean;
 }
 
 serve(async (req) => {
@@ -56,6 +58,37 @@ serve(async (req) => {
     }
 
     console.log('Recognition result:', result);
+
+    // If we have a product identification, fetch the actual product image
+    if (result.needsImage && result.productName && result.productName !== 'Unknown Product' && result.confidence > 0.5) {
+      console.log('Fetching actual product image for:', result.productName);
+      
+      try {
+        // Initialize Supabase client for calling other edge functions
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+        const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Generate high-quality product image
+        const imageResponse = await supabase.functions.invoke('enhanced-product-image-generation', {
+          body: {
+            productName: result.productName,
+            brand: result.brand,
+            category: result.category,
+            style: 'professional-product-photo',
+            prompt: `Ultra high-resolution professional product photography of ${result.productName}${result.brand ? ` by ${result.brand}` : ''}, studio lighting, white background, commercial quality, photorealistic, detailed packaging`
+          }
+        });
+
+        if (imageResponse.data && imageResponse.data.imageUrl) {
+          result.actualProductImage = imageResponse.data.imageUrl;
+          console.log('High-quality product image generated successfully');
+        }
+      } catch (imageError) {
+        console.log('Product image generation failed:', imageError);
+        // Continue without product image
+      }
+    }
 
     return new Response(
       JSON.stringify(result),
@@ -129,7 +162,7 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4.1-2025-04-14',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -150,8 +183,11 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
             "category": "Specific category",
             "brand": "Brand name",
             "details": "Detailed description including size, flavor, model, etc.",
-            "suggestions": ["Alternative name 1", "Alternative name 2"]
+            "suggestions": ["Alternative name 1", "Alternative name 2"],
+            "needsImage": true
           }
+          
+          Set needsImage to true for ANY successfully identified product to fetch the actual product image.
 
           NEVER respond with "Unknown Product" unless the image is completely unrecognizable.
           Even if uncertain, provide your best identification with appropriate confidence level.`
@@ -195,7 +231,8 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
       category: parsed.category,
       brand: parsed.brand,
       details: parsed.details,
-      suggestions: parsed.suggestions
+      suggestions: parsed.suggestions,
+      needsImage: parsed.needsImage || (parsed.confidence > 0.5)
     };
   } catch (parseError) {
     console.error('Failed to parse OpenAI response as JSON:', parseError);

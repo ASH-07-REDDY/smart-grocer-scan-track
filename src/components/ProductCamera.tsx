@@ -40,13 +40,33 @@ export function ProductCamera({
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+      // Enhanced mobile camera constraints
+      const constraints = {
+        video: {
+          facingMode: { exact: 'environment' }, // Force back camera on mobile
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          aspectRatio: { ideal: 16/9 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      };
+
+      // Try with exact constraints first, fallback if needed
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        console.log('Exact constraints failed, trying fallback...');
+        // Fallback constraints for compatibility
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment', // Without 'exact' for compatibility
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+      }
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -114,7 +134,7 @@ export function ProductCamera({
         const productData = {
           name: data.productName,
           confidence: data.confidence,
-          imageUrl,
+          imageUrl: data.actualProductImage || imageUrl, // Use AI-generated product image if available
           category: data.category,
           brand: data.brand,
           details: data.details
