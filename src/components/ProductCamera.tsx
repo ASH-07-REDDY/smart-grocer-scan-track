@@ -175,22 +175,33 @@ export function ProductCamera({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5" />
+      <DialogContent className="sm:max-w-[700px] max-h-[95vh] overflow-hidden glass-card border-0">
+        <DialogHeader className="relative">
+          <div className="absolute -top-2 -right-2 w-20 h-20 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full blur-xl"></div>
+          <DialogTitle className="flex items-center gap-3 text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 backdrop-blur-sm">
+              <Camera className="w-6 h-6 text-primary" />
+            </div>
             {getTitle()}
           </DialogTitle>
+          <div className="h-1 w-full bg-gradient-to-r from-primary via-accent to-primary rounded-full mt-2"></div>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Camera Preview or Captured Image */}
-          <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+          <div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl overflow-hidden depth-card">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5"></div>
+            <div className="absolute top-4 left-4 flex gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse delay-100"></div>
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-200"></div>
+            </div>
+            
             {capturedImage ? (
               <img 
                 src={capturedImage} 
                 alt="Captured product" 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover relative z-10"
               />
             ) : (
               <video
@@ -198,85 +209,150 @@ export function ProductCamera({
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover relative z-10"
               />
             )}
             
-            {/* Recognition overlay */}
+            {/* AI Recognition overlay with 3D effect */}
             {isRecognizing && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <Card className="bg-white/90 backdrop-blur-sm">
-                  <CardContent className="p-4 text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-                    <p className="text-sm font-medium">Recognizing product...</p>
-                    <p className="text-xs text-gray-600">Using AI to identify the item</p>
-                  </CardContent>
-                </Card>
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-purple-900/40 to-blue-900/40 flex items-center justify-center z-20 backdrop-blur-sm">
+                <div className="glass-card p-8 text-center max-w-sm mx-4 floating">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-20 rounded-full blur-xl"></div>
+                    <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary relative z-10" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">AI Analysis in Progress</h3>
+                  <p className="text-sm text-gray-200 mb-1">Scanning product details...</p>
+                  <p className="text-xs text-gray-300">Advanced computer vision processing</p>
+                  <div className="mt-4 h-1 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full animate-pulse"></div>
+                  </div>
+                </div>
               </div>
             )}
+            
+            {/* Decorative grid overlay */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+            </div>
           </div>
           
           {/* Hidden canvas for image capture */}
           <canvas ref={canvasRef} className="hidden" />
           
-          {/* Camera Controls */}
-          <div className="flex justify-center gap-3">
+          {/* Professional Camera Controls */}
+          <div className="flex justify-center gap-4">
             {!isStreaming && !capturedImage && (
-              <Button onClick={startCamera} className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                Start Camera
+              <Button 
+                onClick={startCamera} 
+                variant="gradient" 
+                size="lg"
+                className="flex items-center gap-3 px-8 py-3 text-lg font-semibold"
+              >
+                <Camera className="w-5 h-5" />
+                Activate Camera
               </Button>
             )}
             
             {isStreaming && !capturedImage && (
-              <>
+              <div className="flex gap-4">
                 <Button 
                   onClick={captureImage} 
-                  variant="default"
-                  className="flex items-center gap-2"
+                  variant="premium"
+                  size="lg"
+                  className="flex items-center gap-3 px-8 py-3"
                   disabled={isRecognizing}
                 >
-                  <Camera className="w-4 h-4" />
-                  Capture
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-white/20 rounded-full animate-ping"></div>
+                    <Camera className="w-5 h-5 relative z-10" />
+                  </div>
+                  Capture Photo
                 </Button>
-                <Button onClick={stopCamera} variant="outline">
-                  <X className="w-4 h-4 mr-2" />
+                <Button 
+                  onClick={stopCamera} 
+                  variant="outline" 
+                  size="lg"
+                  className="flex items-center gap-3 px-6 py-3"
+                >
+                  <X className="w-5 h-5" />
                   Cancel
                 </Button>
-              </>
+              </div>
             )}
             
             {capturedImage && !isRecognizing && (
-              <>
+              <div className="flex gap-4">
                 <Button 
                   onClick={handleConfirm} 
-                  variant="default"
-                  className="flex items-center gap-2"
+                  variant="premium"
+                  size="lg"
+                  className="flex items-center gap-3 px-8 py-3"
                 >
-                  <Check className="w-4 h-4" />
-                  {mode === 'capture' ? 'Use This Image' : 'Confirm'}
+                  <Check className="w-5 h-5" />
+                  {mode === 'capture' ? 'Use This Image' : 'Confirm Result'}
                 </Button>
                 <Button 
                   onClick={handleRetake} 
                   variant="outline"
-                  className="flex items-center gap-2"
+                  size="lg"
+                  className="flex items-center gap-3 px-6 py-3"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Retake
+                  <RotateCcw className="w-5 h-5" />
+                  Retake Photo
                 </Button>
-              </>
+              </div>
             )}
           </div>
           
-          {/* Instructions */}
-          <div className="text-xs text-gray-500 text-center bg-blue-50 p-3 rounded-lg">
-            {mode === 'capture' ? (
-              <>📷 Position your product in the frame and tap capture to save the image.</>
-            ) : (
-              <>🤖 AI Recognition: Point camera at product for smart identification. Uses advanced computer vision for accurate results.</>
-            )}
-            <div className="mt-1 text-xs text-gray-400">
-              {mode === 'recognize' && 'Best results with good lighting and clear view of product packaging/labels.'}
+          {/* Professional Instructions Panel */}
+          <div className="glass-card p-6 rounded-2xl border border-primary/20">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20">
+                {mode === 'capture' ? (
+                  <Camera className="w-6 h-6 text-primary" />
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 rounded-full animate-pulse"></div>
+                    <span className="text-2xl relative z-10">🤖</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-foreground mb-2">
+                  {mode === 'capture' ? 'Photo Capture Mode' : 'AI Recognition Mode'}
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {mode === 'capture' ? (
+                    <>Position your product in the center of the frame for the best photo quality. Ensure good lighting and focus.</>
+                  ) : (
+                    <>Our advanced AI will analyze your product using computer vision and machine learning to provide accurate identification.</>
+                  )}
+                </p>
+                {mode === 'recognize' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                      <span>Ensure clear view of product labels and branding</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                      <span>Good lighting improves recognition accuracy</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                      <span>Multiple AI models ensure precise identification</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

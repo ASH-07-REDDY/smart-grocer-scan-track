@@ -105,11 +105,12 @@ async function fastRecognition(imageData: string): Promise<RecognitionResult> {
     return await recognizeWithHuggingFace(imageData);
   } catch (error) {
     console.error('Fast recognition failed:', error);
-    // Fallback to basic recognition
+    // Improved fallback to basic recognition
     return {
-      productName: "Unknown Product",
-      confidence: 0.1,
-      details: "Could not identify product"
+      productName: "Product in Image",
+      confidence: 0.3,
+      details: "Product detected but could not be specifically identified. Please try with better lighting or clearer view.",
+      category: "General"
     };
   }
 }
@@ -132,29 +133,35 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
       messages: [
         {
           role: 'system',
-          content: `You are a professional product identification expert. Analyze the image and identify the product with high accuracy. 
+          content: `You are a professional product identification expert with extensive knowledge of consumer products, food items, household goods, electronics, and retail products. Analyze the image with extreme precision and identify the exact product.
 
-          Respond with a JSON object containing:
-          - productName: The specific product name (be precise, include brand if visible)
-          - confidence: A score from 0-1 indicating your confidence
-          - category: The product category (food, electronics, clothing, etc.)
-          - brand: The brand name if visible
-          - details: Additional details about the product
-          - suggestions: Array of alternative names if uncertain
+          CRITICAL INSTRUCTIONS:
+          - Look carefully at ALL visible text, brand names, logos, and packaging
+          - Read product labels, ingredient lists, and any printed text
+          - Identify specific product variants (size, flavor, model, etc.)
+          - Consider packaging shape, colors, and design elements
+          - If you can see a barcode, mention it
+          - Be specific about product names, not generic categories
 
-          Focus on:
-          1. Brand names and logos
-          2. Product packaging text
-          3. Shape and visual characteristics
-          4. Any visible barcodes or labels
-          5. Context clues from packaging`
+          Respond ONLY with a valid JSON object containing:
+          {
+            "productName": "Exact product name with brand and variant",
+            "confidence": 0.95,
+            "category": "Specific category",
+            "brand": "Brand name",
+            "details": "Detailed description including size, flavor, model, etc.",
+            "suggestions": ["Alternative name 1", "Alternative name 2"]
+          }
+
+          NEVER respond with "Unknown Product" unless the image is completely unrecognizable.
+          Even if uncertain, provide your best identification with appropriate confidence level.`
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Please identify this product with high precision. Look for brand names, product labels, and any text on the packaging.'
+              text: 'Analyze this product image carefully. Read all visible text, identify the brand, product name, size/variant, and any other specific details. Provide the most accurate product identification possible with your confidence level. Focus on packaging text, logos, barcodes, and distinctive features. Even if partially obscured, give your best identification.'
             },
             {
               type: 'image_url',
@@ -165,7 +172,7 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
           ]
         }
       ],
-      max_tokens: 1000,
+      max_tokens: 1500,
       temperature: 0.1 // Lower temperature for more consistent results
     }),
   });
@@ -191,13 +198,34 @@ async function recognizeWithOpenAI(imageData: string): Promise<RecognitionResult
       suggestions: parsed.suggestions
     };
   } catch (parseError) {
-    console.error('Failed to parse OpenAI response as JSON, extracting product name:', parseError);
-    // Fallback: extract product name from text response
+    console.error('Failed to parse OpenAI response as JSON:', parseError);
+    console.log('Raw OpenAI response:', content);
+    
+    // Try to extract JSON from the response if it's wrapped in markdown
+    const jsonMatch = content.match(/```json\s*(\{[\s\S]*?\})\s*```/) || content.match(/(\{[\s\S]*?\})/);
+    if (jsonMatch) {
+      try {
+        const extracted = JSON.parse(jsonMatch[1]);
+        return {
+          productName: extracted.productName || "Product Identified",
+          confidence: Math.min(extracted.confidence || 0.8, 1),
+          category: extracted.category,
+          brand: extracted.brand,
+          details: extracted.details,
+          suggestions: extracted.suggestions
+        };
+      } catch (e) {
+        console.error('Failed to parse extracted JSON:', e);
+      }
+    }
+    
+    // Improved fallback: extract product name from text response
     const productName = extractProductNameFromText(content);
     return {
-      productName,
-      confidence: 0.7,
-      details: content
+      productName: productName || "Identified Product",
+      confidence: 0.6,
+      details: content.substring(0, 200),
+      category: "General"
     };
   }
 }
