@@ -14,7 +14,345 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      barcode_products: {
+        Row: {
+          barcode: string
+          brand: string | null
+          category: string | null
+          created_at: string
+          current_weight: number | null
+          default_expiry_days: number | null
+          id: string
+          image_url: string | null
+          name: string
+          nutrition_info: Json | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          barcode: string
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          current_weight?: number | null
+          default_expiry_days?: number | null
+          id?: string
+          image_url?: string | null
+          name: string
+          nutrition_info?: Json | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          current_weight?: number | null
+          default_expiry_days?: number | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          nutrition_info?: Json | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      device_registry: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          device_id: string
+          device_name: string | null
+          device_type: string | null
+          id: string
+          is_active: boolean | null
+          last_seen: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          device_id: string
+          device_name?: string | null
+          device_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          device_id?: string
+          device_name?: string | null
+          device_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_seen?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      grocery_items: {
+        Row: {
+          barcode: string | null
+          category: string | null
+          created_at: string
+          expiry_date: string | null
+          id: string
+          image_url: string | null
+          is_expired: boolean | null
+          name: string
+          notes: string | null
+          quantity: number | null
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          barcode?: string | null
+          category?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_expired?: boolean | null
+          name: string
+          notes?: string | null
+          quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          barcode?: string | null
+          category?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          image_url?: string | null
+          is_expired?: boolean | null
+          name?: string
+          notes?: string | null
+          quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          item_id: string | null
+          message: string | null
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          item_id?: string | null
+          message?: string | null
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          item_id?: string | null
+          message?: string | null
+          title?: string
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_expiry_dates: {
+        Row: {
+          barcode: string
+          created_at: string
+          expiry_date: string
+          id: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          expiry_date: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_notifications: boolean | null
+          expiry_reminder_days: number | null
+          id: string
+          phone_notifications: boolean | null
+          phone_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_notifications?: boolean | null
+          expiry_reminder_days?: number | null
+          id?: string
+          phone_notifications?: boolean | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_notifications?: boolean | null
+          expiry_reminder_days?: number | null
+          id?: string
+          phone_notifications?: boolean | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      waste_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_name: string
+          quantity: number | null
+          reason: string | null
+          user_id: string
+          wasted_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_name: string
+          quantity?: number | null
+          reason?: string | null
+          user_id: string
+          wasted_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_name?: string
+          quantity?: number | null
+          reason?: string | null
+          user_id?: string
+          wasted_at?: string
+        }
+        Relationships: []
+      }
+      weight_readings: {
+        Row: {
+          barcode: string | null
+          device_id: string | null
+          id: string
+          recorded_at: string
+          unit: string | null
+          weight: number
+        }
+        Insert: {
+          barcode?: string | null
+          device_id?: string | null
+          id?: string
+          recorded_at?: string
+          unit?: string | null
+          weight: number
+        }
+        Update: {
+          barcode?: string | null
+          device_id?: string | null
+          id?: string
+          recorded_at?: string
+          unit?: string | null
+          weight?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
