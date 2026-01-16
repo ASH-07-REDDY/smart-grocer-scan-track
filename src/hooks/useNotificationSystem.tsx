@@ -34,10 +34,7 @@ export function useNotificationSystem() {
         // Check for expired products (expiry date is in the past)
         const { data: expiredProducts, error: expiredError } = await supabase
           .from('grocery_items')
-          .select(`
-            *,
-            categories (name)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .lt('expiry_date', todayString);
 
@@ -48,7 +45,7 @@ export function useNotificationSystem() {
               .from('notifications')
               .select('id, created_at')
               .eq('user_id', user.id)
-              .eq('product_id', product.id)
+              .eq('item_id', product.id)
               .eq('type', 'expired')
               .gte('created_at', todayString)
               .maybeSingle();
@@ -60,7 +57,7 @@ export function useNotificationSystem() {
                 product: {
                   id: product.id,
                   name: product.name,
-                  category: product.categories?.name || 'Uncategorized',
+                  category: product.category || 'Uncategorized',
                   quantity: product.quantity || 0,
                   quantity_type: product.quantity_type || 'pieces',
                   amount: product.amount || 0,
@@ -80,10 +77,7 @@ export function useNotificationSystem() {
         // Fetch products expiring within the reminder period (including today, not expired)
         const { data: expiringProducts, error } = await supabase
           .from('grocery_items')
-          .select(`
-            *,
-            categories (name)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .gte('expiry_date', todayString)
           .lte('expiry_date', futureDate.toISOString().split('T')[0]);
@@ -111,7 +105,7 @@ export function useNotificationSystem() {
             .from('notifications')
             .select('id, created_at')
             .eq('user_id', user.id)
-            .eq('product_id', product.id)
+            .eq('item_id', product.id)
             .eq('type', 'expiry')
             .gte('created_at', todayString)
             .maybeSingle();
@@ -127,7 +121,7 @@ export function useNotificationSystem() {
             product: {
               id: product.id,
               name: product.name,
-              category: product.categories?.name || 'Uncategorized',
+              category: product.category || 'Uncategorized',
               quantity: product.quantity || 0,
               quantity_type: product.quantity_type || 'pieces',
               amount: product.amount || 0,
@@ -201,10 +195,7 @@ export function useNotificationSystem() {
       // Fetch the product details
       const { data: product, error } = await supabase
         .from('grocery_items')
-        .select(`
-          *,
-          categories (name)
-        `)
+        .select('*')
         .eq('id', productId)
         .eq('user_id', user.id)
         .single();
@@ -225,7 +216,7 @@ export function useNotificationSystem() {
           .from('notifications')
           .select('id')
           .eq('user_id', user.id)
-          .eq('product_id', product.id)
+          .eq('item_id', product.id)
           .eq('type', 'expiry')
           .maybeSingle();
 
@@ -236,7 +227,7 @@ export function useNotificationSystem() {
             product: {
               id: product.id,
               name: product.name,
-              category: product.categories?.name || 'Uncategorized',
+              category: product.category || 'Uncategorized',
               quantity: product.quantity || 0,
               quantity_type: product.quantity_type || 'pieces',
               amount: product.amount || 0,

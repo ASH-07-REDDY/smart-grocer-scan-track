@@ -212,41 +212,13 @@ export function useProductOperations() {
         return false;
       }
 
-      // Delete related data in correct order to avoid foreign key constraint violations
+      // Delete related notifications first
       console.log('Deleting related data for product:', productId);
       
-      // Step 1: Get notification IDs for this product
-      const { data: notificationIds, error: notificationFetchError } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('user_id', user.id);
-
-      if (notificationFetchError) {
-        console.error('Error fetching notification IDs:', notificationFetchError);
-      }
-
-      // Step 2: Delete notification delivery logs if there are notifications
-      if (notificationIds && notificationIds.length > 0) {
-        const notificationIdArray = notificationIds.map(n => n.id);
-        const { error: deliveryLogDeleteError } = await supabase
-          .from('notification_delivery_log')
-          .delete()
-          .in('notification_id', notificationIdArray);
-
-        if (deliveryLogDeleteError) {
-          console.error('Error deleting delivery logs:', deliveryLogDeleteError);
-          // Continue anyway
-        } else {
-          console.log('Successfully deleted related delivery logs');
-        }
-      }
-
-      // Step 3: Delete notifications
       const { error: notificationDeleteError } = await supabase
         .from('notifications')
         .delete()
-        .eq('product_id', productId)
+        .eq('item_id', productId)
         .eq('user_id', user.id);
 
       if (notificationDeleteError) {

@@ -14,7 +14,8 @@ interface Device {
   id: string;
   device_id: string;
   device_name: string;
-  device_token: string;
+  device_token: string | null;
+  api_key: string | null;
   is_active: boolean;
   last_seen: string | null;
   created_at: string;
