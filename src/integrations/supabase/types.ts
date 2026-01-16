@@ -26,6 +26,7 @@ export type Database = {
           image_url: string | null
           name: string
           nutrition_info: Json | null
+          product_name: string | null
           unit: string | null
           updated_at: string
         }
@@ -40,6 +41,7 @@ export type Database = {
           image_url?: string | null
           name: string
           nutrition_info?: Json | null
+          product_name?: string | null
           unit?: string | null
           updated_at?: string
         }
@@ -54,6 +56,7 @@ export type Database = {
           image_url?: string | null
           name?: string
           nutrition_info?: Json | null
+          product_name?: string | null
           unit?: string | null
           updated_at?: string
         }
@@ -89,6 +92,7 @@ export type Database = {
           created_at: string
           device_id: string
           device_name: string | null
+          device_token: string | null
           device_type: string | null
           id: string
           is_active: boolean | null
@@ -101,6 +105,7 @@ export type Database = {
           created_at?: string
           device_id: string
           device_name?: string | null
+          device_token?: string | null
           device_type?: string | null
           id?: string
           is_active?: boolean | null
@@ -113,6 +118,7 @@ export type Database = {
           created_at?: string
           device_id?: string
           device_name?: string | null
+          device_token?: string | null
           device_type?: string | null
           id?: string
           is_active?: boolean | null
@@ -124,8 +130,10 @@ export type Database = {
       }
       grocery_items: {
         Row: {
+          amount: number | null
           barcode: string | null
           category: string | null
+          category_id: string | null
           created_at: string
           expiry_date: string | null
           id: string
@@ -134,13 +142,16 @@ export type Database = {
           name: string
           notes: string | null
           quantity: number | null
+          quantity_type: string | null
           unit: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          amount?: number | null
           barcode?: string | null
           category?: string | null
+          category_id?: string | null
           created_at?: string
           expiry_date?: string | null
           id?: string
@@ -149,13 +160,16 @@ export type Database = {
           name: string
           notes?: string | null
           quantity?: number | null
+          quantity_type?: string | null
           unit?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          amount?: number | null
           barcode?: string | null
           category?: string | null
+          category_id?: string | null
           created_at?: string
           expiry_date?: string | null
           id?: string
@@ -164,11 +178,20 @@ export type Database = {
           name?: string
           notes?: string | null
           quantity?: number | null
+          quantity_type?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "grocery_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
