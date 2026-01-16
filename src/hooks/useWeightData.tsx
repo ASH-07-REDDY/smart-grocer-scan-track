@@ -4,28 +4,25 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface WeightReading {
   id: string;
-  barcode: string;
-  weight_value: number;
-  weight_unit: string;
-  sensor_id: string;
-  temperature?: number;
-  battery_level?: number;
-  signal_strength?: number;
-  timestamp: string;
-  user_id: string;
+  barcode: string | null;
+  weight: number;
+  unit: string | null;
+  device_id: string | null;
+  recorded_at: string;
 }
 
 interface BarcodeProductWithWeight {
   id: string;
   barcode: string;
-  product_name: string;
+  name: string;
+  product_name: string | null;
   brand: string | null;
   category: string | null;
   default_expiry_days: number | null;
   nutrition_info: any;
   current_weight: number;
-  weight_unit: string;
-  last_weight_update: string;
+  unit: string;
+  updated_at: string;
   user_expiry_date?: string;
 }
 
@@ -62,26 +59,25 @@ export function useWeightData() {
         .eq('barcode', barcode.trim())
         .maybeSingle();
 
-      // Get the latest weight reading for this specific barcode and user
+      // Get the latest weight reading for this specific barcode
       const { data: latestWeight } = await supabase
         .from('weight_readings')
-        .select('weight_value, weight_unit, timestamp')
+        .select('weight, unit, recorded_at')
         .eq('barcode', barcode.trim())
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
+        .order('recorded_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       // Use the latest weight reading if available, otherwise fall back to product's current_weight
-      const currentWeight = latestWeight?.weight_value || productData.current_weight || 0;
-      const weightUnit = latestWeight?.weight_unit || productData.weight_unit || 'grams';
-      const lastUpdate = latestWeight?.timestamp || productData.last_weight_update;
+      const currentWeight = latestWeight?.weight || productData.current_weight || 0;
+      const weightUnit = latestWeight?.unit || productData.unit || 'g';
+      const lastUpdate = latestWeight?.recorded_at || productData.updated_at;
 
       return {
         ...productData,
         current_weight: currentWeight,
-        weight_unit: weightUnit,
-        last_weight_update: lastUpdate,
+        unit: weightUnit,
+        updated_at: lastUpdate,
         user_expiry_date: expiryData?.expiry_date || null
       };
     } catch (err) {
@@ -113,15 +109,12 @@ export function useWeightData() {
   };
 
   const getWeightHistory = async (barcode: string, limit: number = 10): Promise<WeightReading[]> => {
-    if (!user) return [];
-
     try {
       const { data, error } = await supabase
         .from('weight_readings')
         .select('*')
-        .eq('user_id', user.id)
         .eq('barcode', barcode.trim())
-        .order('timestamp', { ascending: false })
+        .order('recorded_at', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
@@ -135,8 +128,6 @@ export function useWeightData() {
   };
 
   const simulateWeightReading = async (barcode: string, weight: number): Promise<boolean> => {
-    if (!user) return false;
-
     try {
       // Validate that the barcode exists in barcode_products
       const { data: productExists } = await supabase
@@ -154,14 +145,10 @@ export function useWeightData() {
       const { error } = await supabase
         .from('weight_readings')
         .insert({
-          user_id: user.id,
           barcode: barcode.trim(),
-          weight_value: weight,
-          weight_unit: 'grams',
-          sensor_id: 'ESP32_SIMULATOR',
-          temperature: 22.5,
-          battery_level: 85,
-          signal_strength: -45
+          weight: weight,
+          unit: 'g',
+          device_id: 'ESP32_SIMULATOR'
         });
 
       if (error) throw error;

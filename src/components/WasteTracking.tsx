@@ -179,11 +179,11 @@ export function WasteTracking() {
       const transformedEntries = (data || []).map((item: any) => ({
         id: item.id,
         product_id: item.id,
-        product_name: item.product_name,
+        product_name: item.item_name,
         quantity_wasted: item.quantity || 1,
-        waste_reason: item.waste_reason,
-        waste_date: item.waste_date,
-        estimated_value: item.amount || 0,
+        waste_reason: item.reason || 'Unknown',
+        waste_date: item.wasted_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        estimated_value: 0,
         created_at: item.created_at
       }));
       setWasteEntries(transformedEntries);
@@ -208,14 +208,10 @@ export function WasteTracking() {
       const { error: wasteError } = await supabase
         .from('waste_items')
         .insert({
-          user_id: user.id,
-          product_name: product.name,
+          user_id: user?.id,
+          item_name: product.name,
           quantity: wasteQuantity,
-          quantity_type: product.quantity_type,
-          waste_reason: wasteReason,
-          amount: (product.amount / product.quantity) * wasteQuantity,
-          waste_date: new Date().toISOString().split('T')[0],
-          category: product.categories?.name || null
+          reason: wasteReason
         });
 
       if (wasteError) throw wasteError;

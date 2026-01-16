@@ -5,10 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface BarcodeProduct {
   id: string;
   barcode: string;
-  product_name: string;
+  name: string;
+  product_name: string | null;
   brand: string | null;
   category: string | null;
   default_expiry_days: number | null;
+  current_weight: number | null;
+  unit: string | null;
   nutrition_info: any;
 }
 
@@ -31,6 +34,13 @@ export function useBarcodeData() {
         throw error;
       }
 
+      // Map the data to include product_name fallback
+      if (data) {
+        return {
+          ...data,
+          product_name: data.product_name || data.name
+        };
+      }
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to lookup barcode');
