@@ -38,12 +38,7 @@ export function AuthForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [attemptCount, setAttemptCount] = useState(0);
   const { toast } = useToast();
-
-  // Rate limiting - max 5 attempts per 15 minutes
-  const MAX_ATTEMPTS = 5;
-  const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
 
   const validateForm = (): boolean => {
     const errors: string[] = [];
@@ -83,43 +78,6 @@ export function AuthForm() {
 
     setValidationErrors(errors);
     return errors.length === 0;
-  };
-
-  const checkRateLimit = (): boolean => {
-    const now = Date.now();
-    const lastAttempt = localStorage.getItem('lastAuthAttempt');
-    const storedAttemptCount = parseInt(localStorage.getItem('authAttemptCount') || '0');
-
-    if (lastAttempt) {
-      const timeSinceLastAttempt = now - parseInt(lastAttempt);
-      
-      if (timeSinceLastAttempt < RATE_LIMIT_WINDOW) {
-        if (storedAttemptCount >= MAX_ATTEMPTS) {
-          const remainingTime = Math.ceil((RATE_LIMIT_WINDOW - timeSinceLastAttempt) / 60000);
-          toast({
-            title: "Too many attempts",
-            description: `Please wait ${remainingTime} minutes before trying again`,
-            variant: "destructive",
-          });
-          return false;
-        }
-        setAttemptCount(storedAttemptCount);
-      } else {
-        // Reset counter after rate limit window
-        localStorage.removeItem('authAttemptCount');
-        localStorage.removeItem('lastAuthAttempt');
-        setAttemptCount(0);
-      }
-    }
-
-    return true;
-  };
-
-  const updateRateLimit = () => {
-    const newAttemptCount = attemptCount + 1;
-    setAttemptCount(newAttemptCount);
-    localStorage.setItem('authAttemptCount', newAttemptCount.toString());
-    localStorage.setItem('lastAuthAttempt', Date.now().toString());
   };
 
   const handleForgotPassword = async () => {

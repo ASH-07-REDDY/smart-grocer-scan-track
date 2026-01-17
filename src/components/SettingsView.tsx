@@ -1,14 +1,14 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Mail, Calendar, Save, Edit } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Mail, Calendar, Save, Edit, Shield, Camera, Clock, Hash, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface UserProfile {
   id: string;
@@ -17,6 +17,7 @@ interface UserProfile {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  user_id: string | null;
 }
 
 export function SettingsView() {
@@ -25,6 +26,8 @@ export function SettingsView() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -37,17 +40,20 @@ export function SettingsView() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // If profile doesn't exist, create one
+      }
+      
+      if (!data) {
+        // Create profile if doesn't exist
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert([
             {
-              id: user.id,
+              user_id: user.id,
               full_name: user.user_metadata?.full_name || null,
               email: user.email,
             }
@@ -80,10 +86,10 @@ export function SettingsView() {
     const { error } = await supabase
       .from('profiles')
       .update({
-        full_name: fullName,
+        full_name: fullName.trim(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', user.id);
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Error updating profile:', error);
@@ -93,7 +99,7 @@ export function SettingsView() {
         variant: "destructive",
       });
     } else {
-      setProfile({ ...profile, full_name: fullName });
+      setProfile({ ...profile, full_name: fullName, updated_at: new Date().toISOString() });
       setIsEditing(false);
       toast({
         title: "Success",
@@ -104,6 +110,80 @@ export function SettingsView() {
     setSaving(false);
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image under 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      // Upload to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) {
+        // Try creating bucket if it doesn't exist
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+      
+      toast({
+        title: "Photo updated",
+        description: "Your profile photo has been updated",
+      });
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Upload failed",
+        description: "Could not upload photo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || "U";
   };
@@ -112,50 +192,88 @@ export function SettingsView() {
     return profile?.full_name || user?.email?.split('@')[0] || "User";
   };
 
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'PPpp');
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading profile...</div>
+        <div className="text-lg text-muted-foreground">Loading profile...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your account settings and preferences</p>
+        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+          <User className="w-8 h-8 text-primary" />
+          Settings
+        </h1>
+        <p className="text-muted-foreground">Manage your account settings and preferences</p>
       </div>
 
       {/* Profile Information */}
-      <Card>
+      <Card className="overflow-hidden">
+        <div className="h-2 bg-gradient-primary" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+            <User className="w-5 h-5 text-primary" />
             Profile Information
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Avatar and Basic Info */}
-          <div className="flex items-center gap-4">
-            <Avatar className="w-20 h-20">
-              <AvatarFallback className="text-lg">
-                {getInitials(getUserDisplayName())}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="text-xl font-semibold">{getUserDisplayName()}</h3>
-              <p className="text-gray-600">{user?.email}</p>
-              <p className="text-sm text-gray-500">
-                Member since {new Date(profile?.created_at || '').toLocaleDateString()}
+          <div className="flex items-center gap-6">
+            <div className="relative group">
+              <Avatar className="w-24 h-24 ring-4 ring-primary/20">
+                {profile?.avatar_url ? (
+                  <AvatarImage src={profile.avatar_url} alt="Profile" />
+                ) : null}
+                <AvatarFallback className="text-2xl bg-gradient-primary text-primary-foreground">
+                  {getInitials(getUserDisplayName())}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0 shadow-lg"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+              >
+                <Camera className="w-4 h-4" />
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePhotoUpload}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-2xl font-semibold">{getUserDisplayName()}</h3>
+              <p className="text-muted-foreground flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                {user?.email}
+              </p>
+              <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                <Calendar className="w-4 h-4" />
+                Member since {profile?.created_at ? format(new Date(profile.created_at), 'MMMM yyyy') : 'N/A'}
               </p>
             </div>
           </div>
 
           {/* Editable Fields */}
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4 border-t">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName" className="text-sm font-medium">Full Name</Label>
               <div className="flex gap-2">
                 <Input
                   id="fullName"
@@ -163,14 +281,16 @@ export function SettingsView() {
                   onChange={(e) => setFullName(e.target.value)}
                   disabled={!isEditing}
                   placeholder="Enter your full name"
+                  className="max-w-sm"
                 />
                 {!isEditing ? (
                   <Button variant="outline" onClick={() => setIsEditing(true)}>
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button onClick={handleSaveProfile} disabled={saving}>
+                    <Button onClick={handleSaveProfile} disabled={saving} className="bg-gradient-primary">
                       <Save className="w-4 h-4 mr-2" />
                       {saving ? "Saving..." : "Save"}
                     </Button>
@@ -186,14 +306,14 @@ export function SettingsView() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
               <Input
                 id="email"
                 value={user?.email || ""}
                 disabled
-                className="bg-gray-50"
+                className="bg-muted max-w-sm"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Email cannot be changed. Contact support if you need to update your email.
               </p>
             </div>
@@ -205,37 +325,79 @@ export function SettingsView() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
+            <Shield className="w-5 h-5 text-primary" />
             Account Details
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>User ID</Label>
-              <div className="p-2 bg-gray-50 rounded font-mono text-sm">
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Hash className="w-3 h-3" />
+                User ID
+              </Label>
+              <div className="font-mono text-sm break-all">
                 {user?.id}
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Account Created</Label>
-              <div className="p-2 bg-gray-50 rounded text-sm">
-                {new Date(profile?.created_at || '').toLocaleString()}
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Calendar className="w-3 h-3" />
+                Account Created
+              </Label>
+              <div className="text-sm">
+                {formatDate(user?.created_at)}
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Last Updated</Label>
-              <div className="p-2 bg-gray-50 rounded text-sm">
-                {new Date(profile?.updated_at || '').toLocaleString()}
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Clock className="w-3 h-3" />
+                Profile Last Updated
+              </Label>
+              <div className="text-sm">
+                {formatDate(profile?.updated_at)}
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Email Verified</Label>
-              <div className="p-2 bg-gray-50 rounded text-sm">
-                {user?.email_confirmed_at ? "Yes" : "No"}
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Check className="w-3 h-3" />
+                Email Verified
+              </Label>
+              <div className="text-sm flex items-center gap-2">
+                {user?.email_confirmed_at ? (
+                  <>
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    Yes - {format(new Date(user.email_confirmed_at), 'PP')}
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full" />
+                    Pending
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Clock className="w-3 h-3" />
+                Last Sign In
+              </Label>
+              <div className="text-sm">
+                {user?.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'N/A'}
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50">
+              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                <Shield className="w-3 h-3" />
+                Authentication Provider
+              </Label>
+              <div className="text-sm capitalize">
+                {user?.app_metadata?.provider || 'Email'}
               </div>
             </div>
           </div>
@@ -249,21 +411,21 @@ export function SettingsView() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
               <div>
                 <h4 className="font-medium">Sign Out</h4>
-                <p className="text-sm text-gray-600">Sign out of your account</p>
+                <p className="text-sm text-muted-foreground">Sign out of your account on this device</p>
               </div>
               <Button variant="outline" onClick={signOut}>
                 Sign Out
               </Button>
             </div>
             
-            <div className="flex items-center justify-between p-4 border rounded-lg border-red-200 bg-red-50">
+            <div className="flex items-center justify-between p-4 border rounded-lg border-destructive/30 bg-destructive/5">
               <div>
-                <h4 className="font-medium text-red-900">Delete Account</h4>
-                <p className="text-sm text-red-700">
-                  Permanently delete your account and all data
+                <h4 className="font-medium text-destructive">Delete Account</h4>
+                <p className="text-sm text-destructive/80">
+                  Permanently delete your account and all associated data
                 </p>
               </div>
               <Button variant="destructive" disabled>
