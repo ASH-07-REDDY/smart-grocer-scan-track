@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChefHat, Clock, Users, Search, Play, Sparkles, ExternalLink, Bot } from 'lucide-react';
+import { ChefHat, Clock, Users, Search, Play, Sparkles, Send, Bot, RefreshCw, Youtube } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 
 interface Product {
@@ -17,14 +17,10 @@ interface Product {
   categories?: { name: string };
 }
 
-interface AIRecipe {
-  title: string;
-  description: string;
-  ingredients: string[];
-  instructions: string[];
-  cookTime: string;
-  servings: number;
-  difficulty: string;
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
 }
 
 export function RecipeSuggestions() {
@@ -33,9 +29,10 @@ export function RecipeSuggestions() {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [aiRecipe, setAiRecipe] = useState<AIRecipe | null>(null);
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [generatingAI, setGeneratingAI] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -68,82 +65,89 @@ export function RecipeSuggestions() {
     };
   }, [user]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const availableIngredients = useMemo(() => 
-    products.map(p => p.name.toLowerCase()), [products]
+    products.map(p => p.name), [products]
   );
 
-  const generateAIRecipe = async () => {
-    if (!user || products.length === 0) {
-      toast({
-        title: "No ingredients available",
-        description: "Add some products to your pantry first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setGeneratingAI(true);
+  const sendMessage = async (message: string) => {
+    if (!message.trim() || !user) return;
+
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    setUserInput('');
+    setIsTyping(true);
+
     try {
-      const ingredientsList = products.map(p => p.name).join(', ');
-      
-      const { data, error } = await supabase.functions.invoke('enhanced-product-image-generation', {
+      const { data, error } = await supabase.functions.invoke('ai-recipe-chat', {
         body: {
-          productName: `Create a detailed recipe using these ingredients: ${ingredientsList}. 
-          Format as JSON with: title, description, ingredients (array), instructions (array), cookTime, servings, difficulty.
-          Make it creative and delicious!`,
-          category: 'cooking'
+          ingredients: availableIngredients,
+          userMessage: message,
+          conversationHistory: chatMessages.map(m => ({ role: m.role, content: m.content }))
         }
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        // Parse AI response and create recipe
-        const mockAIRecipe: AIRecipe = {
-          title: `Delicious ${products[0]?.name} Recipe`,
-          description: `A creative recipe using your available ingredients: ${ingredientsList}`,
-          ingredients: products.map(p => p.name),
-          instructions: [
-            'Prepare all ingredients by washing and chopping as needed',
-            `Combine ${products.slice(0, 3).map(p => p.name).join(', ')} in a large bowl`,
-            'Season to taste and mix well',
-            'Cook according to your preference and serve hot'
-          ],
-          cookTime: '25-30 mins',
-          servings: 4,
-          difficulty: 'Easy'
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date()
         };
-        
-        setAiRecipe(mockAIRecipe);
-        setShowAIDialog(true);
-        
-        toast({
-          title: "AI Recipe Generated!",
-          description: "Your personalized recipe is ready to view.",
-        });
+        setChatMessages(prev => [...prev, assistantMessage]);
+      } else {
+        throw new Error(data?.error || 'Failed to get response');
       }
-      
-    } catch (error) {
-      console.error('Error generating AI recipe:', error);
+    } catch (error: any) {
+      console.error('Error getting AI response:', error);
       toast({
-        title: "AI Recipe Generation Failed",
-        description: "Please try again later.",
+        title: "Error",
+        description: "Failed to get recipe suggestions. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setGeneratingAI(false);
+      setIsTyping(false);
     }
   };
 
-  const openRecipeAI = () => {
-    const ingredientQuery = products.map(p => p.name).join(', ');
-    const recipeQuery = `recipe with ${ingredientQuery} ingredients cooking instructions`;
-    window.open(`https://chat.openai.com/?q=${encodeURIComponent(recipeQuery)}`, '_blank');
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(userInput);
+  };
+
+  const getQuickSuggestion = () => {
+    const suggestions = [
+      "Suggest a quick dinner recipe with my ingredients",
+      "What's a healthy breakfast I can make?",
+      "Give me a unique recipe I've never tried before",
+      "Suggest a snack recipe for movie night",
+      "What dessert can I make with my ingredients?",
+      "Give me a recipe under 30 minutes"
+    ];
+    return suggestions[Math.floor(Math.random() * suggestions.length)];
+  };
+
+  const openYouTubeRecipe = (recipeName: string) => {
+    const searchQuery = `${recipeName} recipe cooking tutorial`;
+    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
   };
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const clearChat = () => {
+    setChatMessages([]);
+  };
 
   if (loading) {
     return <div className="p-6 text-foreground">Loading recipe suggestions...</div>;
@@ -161,182 +165,207 @@ export function RecipeSuggestions() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search your ingredients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-primary/10">
-            {products.length} ingredients available
-          </Badge>
-          <Button 
-            onClick={generateAIRecipe}
-            disabled={generatingAI || products.length === 0}
-            className="bg-gradient-primary"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {generatingAI ? 'Generating...' : 'AI Recipe'}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={openRecipeAI}
-            disabled={products.length === 0}
-          >
-            <Bot className="w-4 h-4 mr-2" />
-            Recipe AI
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredProducts.map((product) => (
-          <Card key={product.id} className="border-primary/20 hover:border-primary/40 transition-all hover:shadow-glow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>{product.name}</span>
-                <Badge variant="secondary">{product.quantity} {product.quantity_type}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Button 
-                  size="sm"
-                  onClick={() => {
-                    const searchQuery = `${product.name} recipe cooking instructions`;
-                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
-                  }}
-                  className="flex-1"
-                >
-                  <Play className="w-4 h-4 mr-1" />
-                  Recipes
-                </Button>
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const recipeQuery = `recipe with ${product.name} cooking instructions`;
-                    window.open(`https://chat.openai.com/?q=${encodeURIComponent(recipeQuery)}`, '_blank');
-                  }}
-                >
-                  <ExternalLink className="w-4 h-4 mr-1" />
-                  AI Chat
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {products.length === 0 && (
-        <div className="text-center py-12">
-          <ChefHat className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">No ingredients available</h3>
-          <p className="text-muted-foreground">Add some products to your pantry to get personalized recipe suggestions.</p>
-        </div>
-      )}
-
-      {filteredProducts.length === 0 && products.length > 0 && (
-        <div className="text-center py-12">
-          <Search className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">No matching ingredients</h3>
-          <p className="text-muted-foreground">Try searching for different ingredients.</p>
-        </div>
-      )}
-
-      {/* AI Recipe Dialog */}
-      <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              AI Generated Recipe
-            </DialogTitle>
-          </DialogHeader>
-          
-          {aiRecipe && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {aiRecipe.cookTime}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  {aiRecipe.servings} servings
-                </div>
-                <Badge variant="outline">{aiRecipe.difficulty}</Badge>
-              </div>
-
-              <div>
-                <p className="text-muted-foreground">{aiRecipe.description}</p>
-              </div>
-
-              <div>
-                <h3 className="font-medium mb-3">Ingredients:</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {aiRecipe.ingredients.map((ingredient, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 rounded bg-primary/5">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                      <span>{ingredient}</span>
-                      <Badge variant="secondary" className="ml-auto">Available</Badge>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Ingredients Panel */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Your Ingredients</span>
+              <Badge variant="secondary" className="bg-primary/10">
+                {products.length}
+              </Badge>
+            </CardTitle>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search ingredients..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-2">
+                {filteredProducts.map((product) => (
+                  <div 
+                    key={product.id} 
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <span className="font-medium text-sm">{product.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {product.quantity} {product.quantity_type}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                        onClick={() => openYouTubeRecipe(product.name)}
+                        title="Find recipe on YouTube"
+                      >
+                        <Youtube className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {products.length === 0 ? "Add products to your pantry" : "No matching ingredients"}
+                  </div>
+                )}
               </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
-              <div>
-                <h3 className="font-medium mb-3">Instructions:</h3>
-                <ol className="space-y-3">
-                  {aiRecipe.instructions.map((instruction, index) => (
-                    <li key={index} className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="text-foreground">{instruction}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="flex gap-2 pt-4 border-t">
-                <Button 
-                  className="flex-1" 
-                  onClick={() => {
-                    const searchQuery = `${aiRecipe.title} recipe cooking instructions`;
-                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
-                  }}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Watch Tutorial
-                </Button>
-                <Button 
+        {/* AI Chat Panel */}
+        <Card className="lg:col-span-2 flex flex-col h-[500px]">
+          <CardHeader className="pb-3 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary" />
+                Recipe AI Chef
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
                   variant="outline"
-                  onClick={() => {
-                    const recipeQuery = `${aiRecipe.title} detailed recipe cooking instructions`;
-                    window.open(`https://chat.openai.com/?q=${encodeURIComponent(recipeQuery)}`, '_blank');
-                  }}
+                  size="sm"
+                  onClick={clearChat}
+                  disabled={chatMessages.length === 0}
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Get More Details
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowAIDialog(false)}
-                >
-                  Close
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  New Chat
                 </Button>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col overflow-hidden">
+            {/* Chat Messages */}
+            <ScrollArea className="flex-1 pr-4">
+              <div className="space-y-4">
+                {chatMessages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ChefHat className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">Ask me for recipes!</h3>
+                    <p className="text-muted-foreground mb-4">
+                      I'll suggest creative recipes using your {products.length} available ingredients.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendMessage("Suggest a quick and easy dinner recipe")}
+                        disabled={products.length === 0}
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Quick Dinner
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendMessage("What's a healthy meal I can prepare?")}
+                        disabled={products.length === 0}
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Healthy Meal
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendMessage("Suggest something unique and creative")}
+                        disabled={products.length === 0}
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Creative Recipe
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  chatMessages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        {message.role === 'assistant' ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <div 
+                              className="text-sm whitespace-pre-wrap"
+                              dangerouslySetInnerHTML={{ 
+                                __html: message.content
+                                  .replace(/## (.*)/g, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
+                                  .replace(/### (.*)/g, '<h4 class="font-semibold mt-3 mb-1">$1</h4>')
+                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                  .replace(/^\- (.*)/gm, '<li class="ml-4">$1</li>')
+                                  .replace(/^\d+\. (.*)/gm, '<li class="ml-4 list-decimal">$1</li>')
+                              }}
+                            />
+                            {/* Extract recipe name and add YouTube button */}
+                            {message.content.includes('##') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="mt-3"
+                                onClick={() => {
+                                  const match = message.content.match(/## 🍳?\s*(.*)/);
+                                  if (match) openYouTubeRecipe(match[1]);
+                                }}
+                              >
+                                <Youtube className="w-4 h-4 mr-1 text-red-500" />
+                                Watch on YouTube
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm">{message.content}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted rounded-2xl px-4 py-3">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input Area */}
+            <form onSubmit={handleSubmit} className="flex gap-2 mt-4 pt-4 border-t">
+              <Input
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder={products.length === 0 ? "Add ingredients first..." : "Ask for a recipe..."}
+                disabled={isTyping || products.length === 0}
+                className="flex-1"
+              />
+              <Button 
+                type="submit" 
+                disabled={!userInput.trim() || isTyping || products.length === 0}
+                className="bg-gradient-primary"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
