@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { ScanLine, Camera, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { ScanLine, Camera, Loader2, AlertCircle, CheckCircle, Globe, Database } from "lucide-react";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useBarcodeData } from "@/hooks/useBarcodeData";
 import { useToast } from "@/hooks/use-toast";
@@ -94,8 +94,24 @@ export function BarcodeScanner({ open, onOpenChange, onBarcodeScanned }: Barcode
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-green-800">{scannedProduct.product_name}</h3>
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-green-800">{scannedProduct.product_name}</h3>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          scannedProduct.source === 'openfoodfacts' 
+                            ? 'border-blue-300 text-blue-700 bg-blue-50' 
+                            : 'border-green-300 text-green-700 bg-green-50'
+                        }`}
+                      >
+                        {scannedProduct.source === 'openfoodfacts' ? (
+                          <><Globe className="w-3 h-3 mr-1" /> Open Food Facts</>
+                        ) : (
+                          <><Database className="w-3 h-3 mr-1" /> Local DB</>
+                        )}
+                      </Badge>
+                    </div>
                     {scannedProduct.brand && (
                       <p className="text-sm text-green-700">Brand: {scannedProduct.brand}</p>
                     )}
@@ -104,9 +120,35 @@ export function BarcodeScanner({ open, onOpenChange, onBarcodeScanned }: Barcode
                         {scannedProduct.category}
                       </Badge>
                     )}
+                    {scannedProduct.image_url && (
+                      <img 
+                        src={scannedProduct.image_url} 
+                        alt={scannedProduct.product_name || 'Product'} 
+                        className="w-20 h-20 object-cover rounded-lg border"
+                      />
+                    )}
                     <p className="text-xs text-green-600">
                       Default expiry: {scannedProduct.default_expiry_days} days
                     </p>
+                    {scannedProduct.nutrition_info && (
+                      <div className="text-xs text-green-600 bg-green-100 p-2 rounded">
+                        <strong>Nutrition (per 100g):</strong>
+                        <div className="grid grid-cols-2 gap-1 mt-1">
+                          {scannedProduct.nutrition_info.energy_kcal && (
+                            <span>Energy: {scannedProduct.nutrition_info.energy_kcal} kcal</span>
+                          )}
+                          {scannedProduct.nutrition_info.proteins && (
+                            <span>Protein: {scannedProduct.nutrition_info.proteins}g</span>
+                          )}
+                          {scannedProduct.nutrition_info.carbohydrates && (
+                            <span>Carbs: {scannedProduct.nutrition_info.carbohydrates}g</span>
+                          )}
+                          {scannedProduct.nutrition_info.fat && (
+                            <span>Fat: {scannedProduct.nutrition_info.fat}g</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -185,9 +227,13 @@ export function BarcodeScanner({ open, onOpenChange, onBarcodeScanned }: Barcode
             </form>
           </div>
 
-          <div className="text-xs text-gray-500 text-center bg-blue-50 p-3 rounded-lg">
-            📱 Camera access requires HTTPS and user permission. 
-            {scannedProduct ? " Product found in database!" : " Try our sample barcodes: 123456789012, 234567890123"}
+          <div className="text-xs text-muted-foreground text-center bg-blue-50 p-3 rounded-lg space-y-1">
+            <p>📱 Camera access requires HTTPS and user permission.</p>
+            <p>
+              {scannedProduct 
+                ? `✅ Product found ${scannedProduct.source === 'openfoodfacts' ? 'via Open Food Facts global database!' : 'in local database!'}` 
+                : '🌐 Searches local DB + Open Food Facts global database with 2M+ products'}
+            </p>
           </div>
         </div>
       </DialogContent>

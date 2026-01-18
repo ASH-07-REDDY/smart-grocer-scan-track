@@ -33,6 +33,37 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Verify the caller's identity
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Unauthorized - missing authorization header" 
+      }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Create client with user's token to verify identity
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user: callingUser }, error: authError } = await userClient.auth.getUser();
+    
+    if (authError || !callingUser) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Unauthorized - invalid token" 
+      }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const payload: NotificationPayload = await req.json();
     console.log("Processing notification:", JSON.stringify(payload, null, 2));
 
@@ -43,6 +74,17 @@ const handler = async (req: Request): Promise<Response> => {
         error: "Missing required fields" 
       }), {
         status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Verify caller owns the user_id in payload
+    if (payload.user_id !== callingUser.id) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "Cannot send notifications for other users" 
+      }), {
+        status: 403,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
@@ -81,21 +123,6 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    if (!profile?.email) {
-      console.error("Error fetching user profile:", profileError);
-      // Still create notification even if we can't send email
-      await createNotificationRecord(payload);
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: "Notification created but email not sent - no email found" 
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    console.log(`Found user email: ${profile.email}`);
-
     // Get user preferences
     const { data: preferences } = await supabase
       .from('user_notification_preferences')
@@ -103,75 +130,108 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('user_id', payload.user_id)
       .maybeSingle();
 
-    const userPrefs = preferences || { email_notifications: true };
+    const userPrefs = preferences || { 
+      email_notifications: true, 
+      phone_notifications: false, 
+      phone_number: null 
+    };
 
     // Create notification record first
     const notification = await createNotificationRecord(payload);
 
-    if (!userPrefs.email_notifications) {
-      console.log("Email notifications disabled for user");
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: "Notification created but email disabled",
-        notification_id: notification?.id
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    const results: { email_sent: boolean; sms_sent: boolean; email_error?: string; sms_error?: string } = {
+      email_sent: false,
+      sms_sent: false
+    };
+
+    // Send email notification if enabled
+    if (userPrefs.email_notifications && profile?.email) {
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (resendApiKey) {
+        const resend = new Resend(resendApiKey);
+        console.log(`Sending email to: ${profile.email}`);
+        
+        const emailSubject = getEmailSubject(payload);
+        const emailHtml = getEmailHTML(profile.full_name || "User", payload);
+
+        try {
+          const emailResult = await resend.emails.send({
+            from: "Smart Pantry <onboarding@resend.dev>",
+            to: [profile.email],
+            subject: emailSubject,
+            html: emailHtml,
+          });
+
+          console.log("Email sent successfully:", emailResult);
+          results.email_sent = true;
+        } catch (emailError: any) {
+          console.error("Email sending failed:", emailError);
+          results.email_error = emailError.message;
+        }
+      } else {
+        console.log("RESEND_API_KEY not configured");
+      }
     }
 
-    // Send email notification using Resend
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      console.error("RESEND_API_KEY not configured");
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: "Notification created but email service not configured",
-        notification_id: notification?.id
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    // Send SMS notification if enabled and it's an urgent expiry (0-1 days) or expired
+    const isUrgent = payload.notification_type === 'expired' || 
+                     (payload.notification_type === 'expiring' && 
+                      payload.days_until_expiry !== undefined && 
+                      payload.days_until_expiry <= 1);
+
+    if (userPrefs.phone_notifications && userPrefs.phone_number && isUrgent) {
+      const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+      const twilioToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+      const twilioPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+
+      if (twilioSid && twilioToken && twilioPhone) {
+        try {
+          console.log(`Sending SMS to: ${userPrefs.phone_number}`);
+          
+          const smsBody = getSMSBody(payload);
+          
+          const twilioResponse = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Basic ${btoa(`${twilioSid}:${twilioToken}`)}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                To: userPrefs.phone_number,
+                From: twilioPhone,
+                Body: smsBody,
+              }),
+            }
+          );
+
+          const smsResult = await twilioResponse.json();
+
+          if (twilioResponse.ok) {
+            console.log("SMS sent successfully:", smsResult.sid);
+            results.sms_sent = true;
+          } else {
+            console.error("SMS sending failed:", smsResult);
+            results.sms_error = smsResult.message || 'SMS failed';
+          }
+        } catch (smsError: any) {
+          console.error("SMS error:", smsError);
+          results.sms_error = smsError.message;
+        }
+      } else {
+        console.log("Twilio credentials not configured");
+      }
     }
 
-    const resend = new Resend(resendApiKey);
-    console.log(`Sending email to: ${profile.email}`);
-    
-    const emailSubject = getEmailSubject(payload);
-    const emailHtml = getEmailHTML(profile.full_name || "User", payload);
-
-    try {
-      const emailResult = await resend.emails.send({
-        from: "Smart Pantry <onboarding@resend.dev>",
-        to: [profile.email],
-        subject: emailSubject,
-        html: emailHtml,
-      });
-
-      console.log("Email sent successfully:", emailResult);
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        notification_id: notification?.id,
-        email_sent: true,
-        email_result: emailResult
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-
-    } catch (emailError: any) {
-      console.error("Email sending failed:", emailError);
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: "Notification created but email failed",
-        notification_id: notification?.id,
-        email_error: emailError.message
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
+    return new Response(JSON.stringify({ 
+      success: true, 
+      notification_id: notification?.id,
+      ...results
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
 
   } catch (error: any) {
     console.error("Error in notification function:", error);
@@ -259,6 +319,26 @@ function getNotificationMessage(payload: NotificationPayload): string {
     
     default:
       return `Update for ${product.name}`;
+  }
+}
+
+function getSMSBody(payload: NotificationPayload): string {
+  const { product, days_until_expiry } = payload;
+  
+  switch (payload.notification_type) {
+    case 'expiring':
+      if (days_until_expiry === 0) {
+        return `🚨 URGENT: ${product.name} expires TODAY! Use it now to avoid waste. - Smart Pantry`;
+      } else if (days_until_expiry === 1) {
+        return `⚠️ ALERT: ${product.name} expires TOMORROW! Plan to use it soon. - Smart Pantry`;
+      }
+      return `📅 ${product.name} expires in ${days_until_expiry} days. - Smart Pantry`;
+    
+    case 'expired':
+      return `❌ ${product.name} has EXPIRED and should be discarded. - Smart Pantry`;
+    
+    default:
+      return `📦 Smart Pantry: Update for ${product.name}`;
   }
 }
 
