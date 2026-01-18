@@ -1,1 +1,38 @@
 project_id = "bffencxbpctulfmkwqyx"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[functions.ai-product-recognition]
+verify_jwt = false
+
+[functions.ai-recipe-chat]
+verify_jwt = false
+
+[functions.download-product-image]
+verify_jwt = false
+
+[functions.enhanced-product-image-generation]
+verify_jwt = false
+
+[functions.esp32-device-auth]
+verify_jwt = false
+
+[functions.esp32-weight-receiver]
+verify_jwt = false
+
+[functions.generate-product-image]
+verify_jwt = false
+
+[functions.send-notifications]
+verify_jwt = false
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.send-product-notification]
+verify_jwt = false

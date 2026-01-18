@@ -140,10 +140,6 @@ export function AuthForm() {
       return;
     }
 
-    if (!checkRateLimit()) {
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -169,7 +165,6 @@ export function AuthForm() {
         });
         
         if (error) {
-          updateRateLimit();
           throw error;
         }
         
@@ -197,7 +192,6 @@ export function AuthForm() {
         });
 
         if (error) {
-          updateRateLimit();
           throw error;
         }
 
@@ -282,13 +276,6 @@ export function AuthForm() {
             </div>
           )}
 
-          {attemptCount > 0 && (
-            <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
-              <p className="text-accent-foreground text-sm font-medium">
-                {MAX_ATTEMPTS - attemptCount} attempts remaining
-              </p>
-            </div>
-          )}
 
           {showForgotPassword ? (
             <div className="space-y-4">
@@ -421,7 +408,7 @@ export function AuthForm() {
               <Button 
                 type="submit" 
                 className="gradient-button w-full h-12 rounded-xl font-medium text-lg" 
-                disabled={loading || attemptCount >= MAX_ATTEMPTS}
+                disabled={loading}
               >
                 {loading ? "Processing..." : (isLogin ? "Sign In" : "Create Account")}
               </Button>
