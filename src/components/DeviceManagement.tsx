@@ -57,11 +57,19 @@ export function DeviceManagement() {
   };
 
   const generateDeviceToken = (): string => {
-    return `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Use cryptographically secure random values
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const hexString = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `device_${hexString}`;
   };
 
   const generateDeviceId = (): string => {
-    return `scale_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    // Use cryptographically secure random values
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    const hexString = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `scale_${hexString}`;
   };
 
   const addDevice = async () => {
