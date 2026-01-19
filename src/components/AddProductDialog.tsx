@@ -1,12 +1,13 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Scan, Camera, Sparkles } from "lucide-react";
+import { Upload, Scan, Camera, Sparkles, Loader2, Wand2 } from "lucide-react";
 import { ProductCamera } from "@/components/ProductCamera";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Category {
   id: string;
@@ -43,6 +44,7 @@ const productImages = {
 };
 
 export function AddProductDialog({ open, onOpenChange, onAddProduct, categories, initialBarcodeData }: AddProductDialogProps) {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
@@ -55,6 +57,8 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
   });
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<'capture' | 'recognize'>('capture');
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [nameDebounceTimer, setNameDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   const quantityTypes = ["pieces", "kg", "grams", "litres", "ml", "packets", "boxes"];
 
@@ -98,16 +102,69 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
     }
   };
 
-  const handleNameChange = (name: string) => {
-    setFormData({ ...formData, name });
+  // Generate AI image for product
+  const generateAIImage = useCallback(async (productName: string) => {
+    if (!productName || productName.length < 3) return;
     
-    // Auto-suggest image based on product name
+    setIsGeneratingImage(true);
+    try {
+      console.log('Generating AI image for:', productName);
+      
+      const { data, error } = await supabase.functions.invoke('generate-product-image', {
+        body: {
+          productName: productName,
+          category: categories.find(c => c.id === formData.category_id)?.name || ''
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.imageUrl) {
+        setFormData(prev => ({ ...prev, image_url: data.imageUrl }));
+        toast({
+          title: "AI Image Generated",
+          description: `Generated image for "${productName}"`,
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI image:', error);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [categories, formData.category_id, toast]);
+
+  const handleNameChange = (name: string) => {
+    setFormData(prev => ({ ...prev, name }));
+    
+    // First try to match from existing product images
     const matchedImage = Object.entries(productImages).find(([key]) => 
       name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(name.toLowerCase())
     );
     
     if (matchedImage && !formData.image_url) {
       setFormData(prev => ({ ...prev, image_url: matchedImage[1] }));
+    } else if (name.length >= 4 && !formData.image_url) {
+      // Debounce AI image generation - only generate if user stops typing for 1.5s
+      if (nameDebounceTimer) {
+        clearTimeout(nameDebounceTimer);
+      }
+      const timer = setTimeout(() => {
+        generateAIImage(name);
+      }, 1500);
+      setNameDebounceTimer(timer);
+    }
+  };
+
+  // Manual generate button handler
+  const handleManualGenerate = () => {
+    if (formData.name.length >= 3) {
+      generateAIImage(formData.name);
+    } else {
+      toast({
+        title: "Name too short",
+        description: "Enter at least 3 characters to generate an image",
+        variant: "destructive",
+      });
     }
   };
 
@@ -191,7 +248,12 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
             <div className="space-y-2">
               <Label>Product Image</Label>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden relative">
+                  {isGeneratingImage && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
                   {formData.image_url ? (
                     <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
@@ -226,6 +288,26 @@ export function AddProductDialog({ open, onOpenChange, onAddProduct, categories,
                       AI Scan
                     </Button>
                   </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleManualGenerate}
+                    disabled={isGeneratingImage || formData.name.length < 3}
+                    className="w-full"
+                  >
+                    {isGeneratingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-4 h-4 mr-1" />
+                        Generate AI Image
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>

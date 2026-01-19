@@ -137,8 +137,24 @@ export function RecipeSuggestions() {
   };
 
   const openYouTubeRecipe = (recipeName: string) => {
-    const searchQuery = `${recipeName} recipe cooking tutorial`;
-    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`, '_blank');
+    // Clean up recipe name - remove emojis, special chars, and "recipe" word to get better results
+    const cleanName = recipeName
+      .replace(/[🍳🥘🍲🍛🍜🥗🍝🍕🍔🌮🥪🥙🧆🌯🥞🧇🥓🥩🍗🍖🦴🌭🍟🍿🧈🧀🥚🍳🥯🥖🥨🥐🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪🌰🥜🍯🥛🍼🍵☕🧃🥤🧋🍶🍺🍻🥂🍷🥃🍸🍹🧊🍴🥄🔪🧂]/g, '')
+      .replace(/recipe/gi, '')
+      .replace(/\*\*/g, '')
+      .trim();
+    
+    const searchQuery = `${cleanName} recipe cooking tutorial how to make`;
+    const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+    
+    console.log('Opening YouTube search:', youtubeUrl);
+    
+    // Use window.open with proper parameters
+    const newWindow = window.open(youtubeUrl, '_blank', 'noopener,noreferrer');
+    if (!newWindow) {
+      // Fallback for popup blockers
+      window.location.href = youtubeUrl;
+    }
   };
 
   const filteredProducts = products.filter(product =>

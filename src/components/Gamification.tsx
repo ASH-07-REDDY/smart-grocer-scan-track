@@ -40,7 +40,7 @@ interface UserStats {
   daysActive: number;
 }
 
-// Mini Game Component
+// Mini Game Component - Improved with smoother animations and better game logic
 function MemoryGame({ onComplete }: { onComplete: (points: number) => void }) {
   const [cards, setCards] = useState<{ id: number; emoji: string; flipped: boolean; matched: boolean }[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
@@ -48,10 +48,17 @@ function MemoryGame({ onComplete }: { onComplete: (points: number) => void }) {
   const [gameComplete, setGameComplete] = useState(false);
   const [timer, setTimer] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
 
-  const emojis = ['🍎', '🥕', '🥛', '🍞', '🥚', '🧀', '🍌', '🥬'];
+  const emojiSets = {
+    easy: ['🍎', '🥕', '🥛', '🍞'],
+    medium: ['🍎', '🥕', '🥛', '🍞', '🥚', '🧀'],
+    hard: ['🍎', '🥕', '🥛', '🍞', '🥚', '🧀', '🍌', '🥬']
+  };
 
   const initializeGame = useCallback(() => {
+    const emojis = emojiSets[difficulty];
     const shuffled = [...emojis, ...emojis]
       .sort(() => Math.random() - 0.5)
       .map((emoji, index) => ({ id: index, emoji, flipped: false, matched: false }));
@@ -61,84 +68,123 @@ function MemoryGame({ onComplete }: { onComplete: (points: number) => void }) {
     setGameComplete(false);
     setTimer(0);
     setIsPlaying(true);
-  }, []);
+    setIsProcessing(false);
+  }, [difficulty]);
 
   useEffect(() => {
     initializeGame();
   }, [initializeGame]);
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || gameComplete) return;
     const interval = setInterval(() => setTimer(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, gameComplete]);
 
   useEffect(() => {
-    if (flippedCards.length === 2) {
+    if (flippedCards.length === 2 && !isProcessing) {
+      setIsProcessing(true);
       const [first, second] = flippedCards;
+      
       if (cards[first].emoji === cards[second].emoji) {
-        setCards(prev => prev.map((card, i) => 
-          i === first || i === second ? { ...card, matched: true } : card
-        ));
+        // Match found - update immediately
+        setTimeout(() => {
+          setCards(prev => prev.map((card, i) => 
+            i === first || i === second ? { ...card, matched: true, flipped: true } : card
+          ));
+          setFlippedCards([]);
+          setIsProcessing(false);
+        }, 400);
+      } else {
+        // No match - flip back after delay
+        setTimeout(() => {
+          setCards(prev => prev.map((card, i) => 
+            (i === first || i === second) && !card.matched ? { ...card, flipped: false } : card
+          ));
+          setFlippedCards([]);
+          setIsProcessing(false);
+        }, 800);
       }
-      setTimeout(() => {
-        setCards(prev => prev.map((card, i) => 
-          i === first || i === second ? { ...card, flipped: card.matched } : card
-        ));
-        setFlippedCards([]);
-      }, 1000);
     }
-  }, [flippedCards, cards]);
+  }, [flippedCards, cards, isProcessing]);
 
   useEffect(() => {
-    if (cards.length > 0 && cards.every(card => card.matched)) {
+    if (cards.length > 0 && cards.every(card => card.matched) && !gameComplete) {
       setGameComplete(true);
       setIsPlaying(false);
-      const points = Math.max(10, 50 - moves);
+      const difficultyBonus = difficulty === 'hard' ? 30 : difficulty === 'medium' ? 15 : 0;
+      const points = Math.max(10, 50 - Math.floor(moves / 2) + difficultyBonus);
       onComplete(points);
     }
-  }, [cards, moves, onComplete]);
+  }, [cards, moves, onComplete, gameComplete, difficulty]);
 
   const handleCardClick = (index: number) => {
-    if (flippedCards.length >= 2 || cards[index].flipped || cards[index].matched) return;
+    // Prevent clicks during processing or on already handled cards
+    if (isProcessing || flippedCards.length >= 2 || cards[index].flipped || cards[index].matched) return;
+    
     setCards(prev => prev.map((card, i) => i === index ? { ...card, flipped: true } : card));
     setFlippedCards(prev => [...prev, index]);
     setMoves(m => m + 1);
   };
 
+  const gridCols = difficulty === 'easy' ? 'grid-cols-4' : difficulty === 'medium' ? 'grid-cols-4' : 'grid-cols-4';
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <div className="flex gap-4 text-sm">
-          <span className="flex items-center gap-1"><Timer className="w-4 h-4" /> {timer}s</span>
-          <span>Moves: {moves}</span>
+          <span className="flex items-center gap-1 bg-muted px-2 py-1 rounded"><Timer className="w-4 h-4" /> {timer}s</span>
+          <span className="bg-muted px-2 py-1 rounded">Moves: {moves}</span>
         </div>
-        <Button size="sm" variant="outline" onClick={initializeGame}>
-          <RefreshCw className="w-4 h-4 mr-1" /> Reset
-        </Button>
+        <div className="flex gap-2">
+          <select 
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+            className="text-sm border rounded px-2 py-1 bg-background"
+          >
+            <option value="easy">Easy (8 cards)</option>
+            <option value="medium">Medium (12 cards)</option>
+            <option value="hard">Hard (16 cards)</option>
+          </select>
+          <Button size="sm" variant="outline" onClick={initializeGame}>
+            <RefreshCw className="w-4 h-4 mr-1" /> New Game
+          </Button>
+        </div>
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className={`grid ${gridCols} gap-2`}>
         {cards.map((card, index) => (
           <button
-            key={card.id}
+            key={`${card.id}-${card.emoji}`}
             onClick={() => handleCardClick(index)}
-            className={`aspect-square rounded-lg text-2xl font-bold transition-all transform ${
-              card.flipped || card.matched 
-                ? 'bg-primary text-primary-foreground rotate-0' 
-                : 'bg-muted hover:bg-muted/80 rotate-0'
-            } ${card.matched ? 'opacity-60' : ''}`}
-            disabled={card.flipped || card.matched}
+            disabled={card.flipped || card.matched || isProcessing}
+            className={`aspect-square rounded-lg text-2xl font-bold transition-all duration-300 ease-out transform
+              ${card.flipped || card.matched 
+                ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground scale-105 shadow-lg' 
+                : 'bg-muted hover:bg-muted/80 hover:scale-102 cursor-pointer'
+              } 
+              ${card.matched ? 'opacity-70 ring-2 ring-green-500' : ''} 
+              ${isProcessing ? 'pointer-events-none' : ''}
+              active:scale-95`}
           >
-            {card.flipped || card.matched ? card.emoji : '?'}
+            <span className={`transition-opacity duration-200 ${card.flipped || card.matched ? 'opacity-100' : 'opacity-0'}`}>
+              {card.emoji}
+            </span>
+            <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${card.flipped || card.matched ? 'opacity-0' : 'opacity-100'}`}>
+              ?
+            </span>
           </button>
         ))}
       </div>
       {gameComplete && (
-        <div className="text-center p-4 bg-green-100 dark:bg-green-900/30 rounded-lg">
-          <Trophy className="w-8 h-8 mx-auto text-yellow-500 mb-2" />
-          <p className="font-bold text-green-800 dark:text-green-200">
-            Completed in {moves} moves! +{Math.max(10, 50 - moves)} points
+        <div className="text-center p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border border-green-200 shadow-lg animate-pulse">
+          <Trophy className="w-10 h-10 mx-auto text-yellow-500 mb-2" />
+          <p className="font-bold text-lg text-green-800 dark:text-green-200">
+            🎉 Completed in {moves} moves!
           </p>
+          <p className="text-green-600 dark:text-green-300 text-sm">
+            +{Math.max(10, 50 - Math.floor(moves / 2) + (difficulty === 'hard' ? 30 : difficulty === 'medium' ? 15 : 0))} points earned!
+          </p>
+          <Button size="sm" className="mt-3" onClick={initializeGame}>Play Again</Button>
         </div>
       )}
     </div>
