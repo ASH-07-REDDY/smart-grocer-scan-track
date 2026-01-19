@@ -28,26 +28,21 @@ serve(async (req) => {
     console.log(`Generating AI image for product: ${productName} (${category})`);
 
     const prompt = generatePrompt(productName, category);
-    console.log("Prompt for OpenAI:", prompt);
+    console.log("Prompt for image generation:", prompt);
 
-    // First Attempt
-    let result = await generateWithOpenAI(prompt);
+    // Use Lovable AI Gateway with Gemini model
+    let result = await generateWithLovableGateway(prompt);
+    
     if (!result.success) {
-      // Second attempt with simpler fallback prompt
+      // Retry with simpler prompt
       console.log("Retrying with simple fallback prompt...");
-      result = await generateWithOpenAI(`${productName}, product photo, white background`);
-    }
-
-    // Final fallback super simple
-    if (!result.success) {
-      console.log("Final fallback attempt...");
-      result = await generateWithOpenAI(`product photo`);
+      result = await generateWithLovableGateway(`${productName}, product photo, white background`);
     }
 
     if (!result.success) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: "Failed to generate image with OpenAI",
+        error: "Failed to generate image",
         details: result.error 
       }), {
         status: 500,
@@ -63,7 +58,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       imageUrl: uploadedUrl,
-      provider: "OpenAI DALL-E 3"
+      provider: "Lovable AI Gateway (Gemini)"
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders }
@@ -73,7 +68,7 @@ serve(async (req) => {
     console.error("Unexpected error:", err);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: err.message,
+      error: "An error occurred during image generation",
       provider: "Error"
     }), {
       status: 500,
@@ -89,52 +84,54 @@ function generatePrompt(name: string, category: string): string {
   return `Professional product photo of ${name}${categoryPrompt}${stylePrompt}`;
 }
 
-// ---------------------- OPENAI IMAGE GENERATOR ----------------------
-async function generateWithOpenAI(prompt: string) {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+// ---------------------- LOVABLE AI GATEWAY IMAGE GENERATOR ----------------------
+async function generateWithLovableGateway(prompt: string) {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
-    console.error("OpenAI API key not found");
-    return { success: false, error: "Missing API key" };
+    console.error("LOVABLE_API_KEY not found");
+    return { success: false, error: "Missing LOVABLE_API_KEY" };
   }
 
   try {
-    console.log(`Generating image with prompt: ${prompt}`);
+    console.log(`Generating image with Lovable Gateway, prompt: ${prompt}`);
     
-    // Use DALL-E 3 directly (more reliable)
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: prompt.slice(0, 4000), // Ensure prompt is within limits
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        style: "natural",
-        response_format: "url"
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        modalities: ["image", "text"]
       })
     });
 
     const data = await res.json();
-    console.log("OpenAI DALL-E 3 response status:", res.status);
+    console.log("Lovable Gateway response status:", res.status);
     
     if (!res.ok) {
-      console.error("OpenAI API error:", data);
+      console.error("Lovable Gateway API error:", data);
       return { success: false, error: data.error?.message || `HTTP ${res.status}` };
     }
 
-    if (data.data && data.data[0]?.url) {
-      console.log("OpenAI DALL-E 3 generation successful");
-      return { success: true, imageUrl: data.data[0].url };
+    // Extract image from response
+    const images = data.choices?.[0]?.message?.images;
+    if (images && images.length > 0 && images[0]?.image_url?.url) {
+      console.log("Lovable Gateway image generation successful");
+      return { success: true, imageUrl: images[0].image_url.url };
     } else {
-      console.error("No image URL in response:", data);
+      console.error("No image in response:", data);
       return { success: false, error: "No image generated" };
     }
   } catch (e) {
-    console.error("OpenAI fetch error:", e);
+    console.error("Lovable Gateway fetch error:", e);
     return { success: false, error: e.message };
   }
 }
@@ -145,7 +142,7 @@ async function uploadToSupabase(imageUrl: string, productId: string): Promise<st
     let uint8Array: Uint8Array;
 
     if (imageUrl.startsWith('data:image/')) {
-      // Handle base64 images from gpt-image-1
+      // Handle base64 images
       console.log("Processing base64 image");
       const base64Data = imageUrl.split(',')[1];
       const binaryString = atob(base64Data);
@@ -154,7 +151,7 @@ async function uploadToSupabase(imageUrl: string, productId: string): Promise<st
         uint8Array[i] = binaryString.charCodeAt(i);
       }
     } else {
-      // Handle URL images from DALL-E 3
+      // Handle URL images
       console.log(`Downloading image from URL: ${imageUrl}`);
       const imageResponse = await fetch(imageUrl);
       
@@ -171,12 +168,11 @@ async function uploadToSupabase(imageUrl: string, productId: string): Promise<st
 
     console.log(`Uploading to Supabase: ${bucket}/${fileName}`);
     
-    // Upload using Supabase client
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(fileName, uint8Array, {
         contentType: "image/png",
-        upsert: true // This allows overwriting existing files
+        upsert: true
       });
 
     if (error) {
@@ -186,7 +182,6 @@ async function uploadToSupabase(imageUrl: string, productId: string): Promise<st
 
     console.log("Upload successful:", data);
 
-    // Get the public URL
     const { data: { publicUrl } } = supabase.storage
       .from(bucket)
       .getPublicUrl(fileName);
