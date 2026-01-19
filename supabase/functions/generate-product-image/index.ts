@@ -1,5 +1,5 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +11,10 @@ interface ImageRequest {
   category?: string;
 }
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,13 +25,12 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log(`Generating image for product: ${productName}, category: ${category}`);
     
-    // Generate AI image using OpenAI DALL-E
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiApiKey) {
-      console.error("OPENAI_API_KEY not configured");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) {
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(JSON.stringify({ 
         success: false,
-        error: "OpenAI API key not configured" 
+        error: "AI service not configured" 
       }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -35,108 +38,117 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create optimized prompts for better image generation
-    const basePrompt = `professional product photograph of ${productName}`;
     const categoryContext = category ? ` ${category} item` : '';
-    const stylePrompt = `, clean white background, commercial photography, high quality, centered, well-lit`;
-    
-    const prompt = `${basePrompt}${categoryContext}${stylePrompt}`;
+    const prompt = `Professional product photography of ${productName}${categoryContext}, clean white background, commercial photography, high quality, centered, well-lit, studio lighting, e-commerce style`;
 
-    console.log(`Using optimized prompt: ${prompt}`);
+    console.log(`Using prompt: ${prompt}`);
 
-    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
+    // Use Lovable AI Gateway with Gemini model
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: prompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        style: "natural",
-        response_format: "url"
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        modalities: ["image", "text"]
       }),
     });
 
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text();
-      console.error("OpenAI API error:", errorText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Lovable AI Gateway error:", errorText);
       
-      // Fallback with simpler prompt
-      const fallbackPrompt = `${productName} product photo, white background`;
-      console.log(`Retrying with fallback prompt: ${fallbackPrompt}`);
-      
-      const retryResponse = await fetch("https://api.openai.com/v1/images/generations", {
+      // Retry with simpler prompt
+      console.log("Retrying with simpler prompt...");
+      const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiApiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "dall-e-3",
-          prompt: fallbackPrompt,
-          n: 1,
-          size: "1024x1024",
-          quality: "standard",
-          style: "natural"
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: `${productName} product photo, white background`
+            }
+          ],
+          modalities: ["image", "text"]
         }),
       });
 
       if (!retryResponse.ok) {
         const retryErrorText = await retryResponse.text();
-        console.error("OpenAI API retry failed:", retryErrorText);
+        console.error("Retry failed:", retryErrorText);
         return new Response(JSON.stringify({ 
           success: false,
-          error: "Failed to generate image after retry attempts" 
+          error: "Failed to generate image after retry" 
         }), {
           status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
-      const retryImageData = await retryResponse.json();
-      const retryImageUrl = retryImageData.data[0]?.url;
-
-      if (!retryImageUrl) {
+      const retryData = await retryResponse.json();
+      const retryImages = retryData.choices?.[0]?.message?.images;
+      
+      if (retryImages && retryImages.length > 0 && retryImages[0]?.image_url?.url) {
+        const imageUrl = retryImages[0].image_url.url;
+        console.log("Image generated successfully on retry");
+        
+        // Upload to Supabase Storage
+        const uploadedUrl = await uploadToSupabase(imageUrl, productName);
+        
         return new Response(JSON.stringify({ 
-          success: false,
-          error: "No image URL returned from retry attempt" 
+          success: true, 
+          imageUrl: uploadedUrl,
+          prompt: `${productName} product photo`
         }), {
-          status: 500,
+          status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
 
-      console.log("Image generated successfully on retry");
-      return new Response(JSON.stringify({ 
-        success: true, 
-        imageUrl: retryImageUrl,
-        prompt: fallbackPrompt
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const imageData = await imageResponse.json();
-    const imageUrl = imageData.data[0]?.url;
-
-    if (!imageUrl) {
       return new Response(JSON.stringify({ 
         success: false,
-        error: "No image URL returned from OpenAI" 
+        error: "No image generated on retry" 
       }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
+    const data = await response.json();
+    const images = data.choices?.[0]?.message?.images;
+
+    if (!images || images.length === 0 || !images[0]?.image_url?.url) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: "No image generated" 
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const imageUrl = images[0].image_url.url;
     console.log("Image generated successfully");
+    
+    // Upload to Supabase Storage
+    const uploadedUrl = await uploadToSupabase(imageUrl, productName);
+    
     return new Response(JSON.stringify({ 
       success: true, 
-      imageUrl: imageUrl,
+      imageUrl: uploadedUrl,
       prompt: prompt
     }), {
       status: 200,
@@ -154,5 +166,62 @@ const handler = async (req: Request): Promise<Response> => {
     });
   }
 };
+
+async function uploadToSupabase(imageUrl: string, productName: string): Promise<string> {
+  try {
+    let uint8Array: Uint8Array;
+    const productId = `${productName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`;
+
+    if (imageUrl.startsWith('data:image/')) {
+      console.log("Processing base64 image");
+      const base64Data = imageUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      uint8Array = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+      }
+    } else {
+      console.log(`Downloading image from URL`);
+      const imageResponse = await fetch(imageUrl);
+      
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download image: ${imageResponse.status}`);
+      }
+
+      const imageBuffer = await imageResponse.arrayBuffer();
+      uint8Array = new Uint8Array(imageBuffer);
+    }
+
+    const bucket = "product-images";
+    const fileName = `${productId}.png`;
+
+    console.log(`Uploading to Supabase: ${bucket}/${fileName}`);
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, uint8Array, {
+        contentType: "image/png",
+        upsert: true
+      });
+
+    if (error) {
+      console.error("Supabase upload error:", error);
+      // Return the original URL if upload fails
+      return imageUrl;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    console.log("Public URL generated:", publicUrl);
+    return publicUrl;
+
+  } catch (error) {
+    console.error("Upload to Supabase failed:", error);
+    // Return original URL as fallback
+    return imageUrl;
+  }
+}
 
 serve(handler);

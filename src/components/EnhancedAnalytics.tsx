@@ -102,6 +102,28 @@ export function EnhancedAnalytics() {
     };
 
     fetchAnalytics();
+
+    // Set up real-time subscription for automatic updates
+    const channel = supabase
+      .channel('analytics_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'grocery_items',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          console.log('Analytics data changed, refreshing...');
+          fetchAnalytics();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const processAnalyticsData = (products: any[]): ProductAnalytics => {
